@@ -1,0 +1,416 @@
+---
+title: "Quant DO-MS"
+author: ""
+date: "11/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source('QuantQC_functions.R')
+
+
+# Read in the path to maxQuant file
+#data_path <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_7_pSCoPE/Trachea_pSCoPE_prep1_part2/evidence.txt'
+
+#data_path2 <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_7_pSCoPE/Trachea_3_7_pSCoPE_part1/evidence.txt'
+
+
+data_path <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/Trachea_3_6_pSCoPE_part1/evidence.txt'
+
+
+
+## Read in meta data (Just links raw file to inject well)
+linker <- read.csv('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/linker_age.csv')
+
+
+
+### Read in cell isolation files from CellenONE and assign cell type
+
+
+one <-read.delim("/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/Young_isolated.xls")
+one$condition <- 'young'
+
+
+two <- read.delim("/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/old_isolated.xls")
+two$condition <- 'old'
+
+
+all_cells <- rbind(one,two)
+
+
+# Set parameters
+
+PIF <- .75
+PEP <- .04
+
+CV_thresh <- .43
+
+#species <- c('Mouse') #Mouse, Human
+
+
+```
+
+# Results {.tabset}
+
+```{r Pre_proccess, include=FALSE}
+
+
+#Read and format raw data, link MS runs to injection wells
+Trachea_3_7_prot <- MQ_to_nPOP(data_path,linker,PIF,PEP)
+
+
+# Normalize single cell runs to reference channel, 
+# filter out data points over twice reference
+# Turn long table format to Peptide X Cell matrix
+Trachea_3_7_prot <- TMT_Reference_channel_norm(Trachea_3_7_prot)
+
+
+
+## mapping cellenONE meta data to raw data
+Trachea_3_7_prot <- link_cellenONE_Raw(Trachea_3_7_prot,all_cells)
+
+
+```
+
+
+## LC/MS Performance Statistics
+
+### IDs and intensities
+```{r, echo=FALSE,fig.width = 10, fig.height = 4.5}
+
+# Calculate statistics to look for decrease in LC/MS performance
+# over time
+Trachea_3_7_prot <- Calculate_run_order_statistics(Trachea_3_7_prot)
+
+
+# Plot MS Intensity Statistics
+PlotIntensityDrift(Trachea_3_7_prot)
+
+
+```
+
+
+### Retention time drift
+```{r, echo=FALSE,fig.width = 10, fig.height = 4.5}
+
+#Plot Retention time Statistics
+PlotRTDrift(Trachea_3_7_prot)
+
+
+```
+
+
+## Single Cell Statistics
+
+
+### Negative control vs real cell statistics
+```{r negative_ctrl ,echo=FALSE, fig.width = 11, fig.height = 4.5,warning=FALSE,message=FALSE}
+
+PlotNegCtrl(Trachea_3_7_prot,.43)
+
+Trachea_3_7_prot <- FilterFailedCells(Trachea_3_7_prot)
+
+```
+
+### Carrier Statistics
+
+```{r carrier, echo=FALSE, fig.height=4.5, fig.width=11, warning=FALSE,message=FALSE}
+
+#Compute the size relative to the carrier of each cell
+PlotSCtoCarrierRatio(Trachea_3_7_prot)
+
+```
+
+
+### Protein and peptide numbers per cell
+
+```{r Collapse and count, echo=FALSE,fig.width = 11, fig.height = 4.5,warning=FALSE,message=FALSE}
+
+Trachea_3_7_prot <- CollapseToProtein(Trachea_3_7_prot,1)
+
+PlotProtAndPep(Trachea_3_7_prot)
+
+```
+
+
+### Data completness based on filtering (uses intersected subset of proteins from channel qval filtered data)
+
+
+```{r completness_Statistics, echo=FALSE,fig.width = 11.5, fig.height = 4.5,warning=FALSE,message=FALSE}
+
+PlotDataComplete(Trachea_3_7_prot)
+
+```
+
+### Correlations between peptides mapping to protein compared to variance
+
+```{r correlations_pep to prot, echo=FALSE,fig.width = 7, fig.height = 4.5}
+
+#Compute correlations between peptides mapping to same protein
+
+pep_cor <- Pep_cor(Ref_norm_data_filtered,protein_mat,F,cellenONE_meta)
+
+
+pep_cor_plot <- ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot() + xlab('Mean abs(protein fold change)') +ylab('Correlation between peptides mapping to a protein')+stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")
+
+pep_cor_plot
+
+
+```
+
+### PCA and batch effects checks
+```{r PCA, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
+
+# Impute data (needed for batch correction)
+protein_mat_imputed <- KNN_impute(protein_mat,3)
+
+
+
+
+
+
+
+
+
+# Regular PCA by sample
+ggplot(scx,aes(x = PC1,y = PC2, color = sample)) + geom_point(size = 5) + theme_classic()+ ggtitle('Cell Type') +
+  xlab(paste0('PC1 ',round(percent_var[1]),'%'))+ylab(paste0('PC2 ',round(percent_var[2]),'%'))
+
+
+
+# PCA by labels to check label bias
+lab_plot <- ggplot(scx,aes(x = PC1,y = PC2, color = label)) + geom_point(size = 5) + theme_classic() + ggtitle('Label Bias')
+
+# PCA by intensity to check size bias
+intense_plot <-  ggplot(scx,aes(x = PC1,y = PC2, color = prot_total)) + geom_point(size = 5) + theme_classic()+ ggtitle('Cell Intensity')+
+  scale_color_gradient2(midpoint = median(scx$prot_total,na.rm = T), low = "blue", mid = "white",high = "red",name = '')
+
+lab_plot 
+intense_plot
+
+Run_order_batch <- ggplot(scx,aes(x = PC1,y = PC2, color = Order)) + geom_point(size = 5) + theme_classic()+ ggtitle('Order sets were ran in')+
+  scale_color_gradient2(midpoint = median(scx$Order,na.rm = T), low = "blue", mid = "white",high = "red",name = '')
+
+Run_order_batch
+
+# Distribution of cell sizes by diameter
+ggplot(scx,aes(x = sample,y = diameter)) + geom_boxplot() + 
+  theme_classic()+ ggtitle('Size by sample')+ylab('Diameter (micron)')+xlab('')+
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 10))
+
+
+# Examine cell volume to total protein relationship, should be linear correlation
+
+scx$vol <- ((scx$diameter/2)^3)
+
+ggplot(scx,aes(x = vol,y = prot_total,color=sample)) + geom_point(size = 5) + theme_classic()+ ggtitle(paste0('Correlation = ',round(cor(scx$prot,scx$vol,use = 'pairwise.complete.obs', method = 'pearson'),digits = 3)))+ylab('Total (Summed) Cell Intensity')+xlab('Cell Volume (diameter/2)^3')
+
+
+ggplot(scx,aes(x = vol,y = prot_total,color=Order)) + geom_point(size = 5) + theme_classic()+ ggtitle('Colored by order sets were run')+ylab('Total (Summed) Cell Intensity')+xlab('Cell Volume (diameter/2)^3')+
+ scale_color_gradient2(midpoint = median(scx$Order,na.rm = T), low = "blue", mid = "white",high = "red",name = '')
+
+
+
+
+```
+
+
+
+### Additional dimensionality reduction and clustering
+
+
+```{r UMAP, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
+
+
+
+ 
+rownames(sc.batch_cor) <- rownames(protein_mat_imputed)
+#sc.batch_cor <- sc.batch_cor[rownames(sc.batch_cor)%in% convert_mouse_have$Entry, ]
+#sc.batch_cor <- sc.batch_cor[convert_mouse_have$Entry,]
+#rownames(sc.batch_cor) <- convert_mouse_have$Gene.Names..synonym.
+
+
+protein_Data <- XXX # Normalized prote data I sent
+
+prot_umap <- CreateSeuratObject(counts = protein_Data, project = "prot_mat")
+prot_umap <- NormalizeData(prot_umap, normalization.method = "LogNormalize", scale.factor = 10000)
+prot_umap@assays$RNA@scale.data <- sc.batch_cor
+
+all.genes <- rownames(protein_Data)
+prot_umap <- ScaleData(prot_umap, features = protein_Data)
+prot_umap@assays$RNA@scale.data <- protein_Data
+prot_umap <- RunPCA(prot_umap, features = all.genes)
+
+DimHeatmap(prot_umap, dims = 1:6, cells = 200, balanced = TRUE)
+prot_umap <- FindNeighbors(prot_umap, dims = 1:6)
+prot_umap <- FindClusters(prot_umap, resolution = 1.5)
+prot_umap <- RunUMAP(prot_umap, dims = 1:6)
+DimPlot(prot_umap, reduction = "umap") + ggtitle('UMAP colored by Louvain cluster')
+
+
+um_plot <- as.data.frame(prot_umap@reductions[["umap"]]@cell.embeddings)
+PCA_plot <- as.data.frame(prot_umap@reductions[["pca"]]@cell.embeddings)
+
+um_plot$Celltype <- scx$sample
+um_plot$cluster <- prot_umap@meta.data[["RNA_snn_res.1.5"]]
+um_plot$lab <- scx$label
+um_plot$Order <- scx$Order
+
+PCA_plot$Celltype <- scx$sample
+PCA_plot$lab <- scx$label
+PCA_plot$Order <- scx$Order
+
+ggplot(um_plot, aes(x = UMAP_1,y = UMAP_2, color = cluster)) + geom_point(size = 3) + theme_classic()+
+  ggtitle('UMAP colored by Sample')
+
+
+
+
+#um_plot$Mark1 <- sc.batch_cor_noimp['O88312',]
+#ggplot(um_plot, aes(x = UMAP_1,y = UMAP_2, color = Mark1)) + geom_point(size = 3) + theme_classic()+
+#  scale_color_gradient2(midpoint = 0, low = "blue", mid = "white",high = "red",name #= '')
+
+# pvals <- c()
+# prot_names <- c()
+# for(i in 1:nrow(sc.batch_cor_noimp)){
+#   C1 <- sc.batch_cor_noimp[i,prot_umap@meta.data[["seurat_clusters"]]%in% c(0,3)]
+#   C2 <- sc.batch_cor_noimp[i,prot_umap@meta.data[["seurat_clusters"]]%in% c(1,2)]
+#   
+#   if(sum(is.na(C1)==F) > 9 & sum(is.na(C2)==F) > 9 ){
+#     pval <- t.test(C1,C2)$p.value
+#     
+#     pvals <- c(pvals,pval)
+#     prot_names <- c(prot_names,rownames(sc.batch_cor_noimp)[i])
+#     
+#     
+#   }
+#   
+# }
+# 
+# df <- as.data.frame(pvals)
+# df$prot <- prot_names
+
+```
+
+
+
+
+### Advanced Peptide mapping to a Protein Correlations
+
+```{r r Advanced Pep to prot Correlations, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
+
+# 
+# cells_filt_adj <- as.matrix(Ref_norm_data_filtered[,3:ncol(Ref_norm_data_filtered)])
+# 
+# cells_filt_adj_imp <- KNN_impute(cells_filt_adj,3)
+# cells_filt_adj_imp <- limma::removeBatchEffect(cells_filt_adj_imp,batch = batch_label$injectWell, batch2 = batch_label$label)
+# cells_filt_adj_imp[is.na(cells_filt_adj)==T] <- NA
+# 
+# 
+# 
+# 
+# clust_ids <- as.numeric(as.character(um_plot$assign))
+# #clust_ids <- as.numeric(as.character(prot_umap@meta.data[["RNA_snn_res.1.5"]]))
+# 
+# new_mat <- matrix(data = NA,nrow = nrow(Ref_norm_data_filtered),ncol = length(unique(clust_ids)))
+# 
+# 
+# 
+# count= 0
+# for(i in 1:length(unique(clust_ids))){
+#   new_mat[,i] <- rowMeans(cells_filt_adj_imp[,clust_ids == count],na.rm = T)
+# 
+#   count = count + 1
+# }
+# new_mat[is.nan(new_mat)] <- NA
+# 
+# new_mat <- cbind(Ref_norm_data_filtered[,1:2],new_mat)
+# 
+# pep_cor <- Pep_cor(new_mat,protein_mat)
+# 
+# 
+# 
+# pep_cor_plot <- ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot() + xlab('Mean abs(protein fold change)') +ylab('Correlation peptides from a protein, cluster level')+stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue") + ggtitle('Correlations averaged at the cluster level')
+# 
+# pep_cor_plot
+
+
+```
+
+
+
+
+```{r Plotting_Stats, echo=FALSE,fig.width = 11, fig.height = 4.5}
+
+
+# prot_info <- prot_info %>% filter(is.na(vars) == F)
+# Var_norm <- ggplot(prot_info,aes(x = log10(sums),y = log10(vars))) + geom_point() + 
+#   theme_bw()  + ggtitle(paste0('No normalization, ',"Cor = ", round(cor(log10(prot_info$sums),log10(prot_info$vars),use = 'pairwise.complete.obs'),digits = 3))) + xlab('Mean Protein Intensity') + ylab('Protein Variance')+ theme(axis.title.x = element_text(size = 20),axis.title.y = element_text(size = 20),axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 15))
+# 
+# Var_no_norm <-ggplot(prot_info,aes(x = log10(sums),y = log10(vars_no_norm))) + geom_point() + 
+#   theme_bw() + ggtitle(paste0('After normalization, ' ,"Cor = ", round(cor(log10(prot_info$sums),log10(prot_info$vars_no_norm),use = 'pairwise.complete.obs'),digits = 3)))+ xlab('Mean Protein Intensity') + ylab('Protein Variance')+ theme(axis.title.x = element_text(size = 20),axis.title.y = element_text(size = 20),axis.text.x = element_text(size = 15),axis.text.y = element_text(size = 15))
+# 
+# Var_no_norm + Var_norm
+
+
+```
+
+
+
+```{r, echo=FALSE,fig.width = 11, fig.height = 4.5}
+
+#Saads plots
+# Norm_quality_pre_cell <-ggplot(cell_info,aes(x = log10(sum_no_norm),y = complete)) + geom_point() + ylab('% Completeness of proteins in cell')+ xlab('log10(summed Intensity of cell)')+ theme_bw()+ ggtitle(paste0('No normalization, Cor = ', round(cor(log10(cell_info$sum_no_norm),cell_info$complete,use = 'pairwise.complete.obs'),digits = 3))) +theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10)) 
+# 
+# Norm_quality_post_cell_saad <-ggplot(cell_info,aes(x = (sum_norm),y = complete)) + geom_point() + theme_bw()+ ggtitle(paste0('New normalization, Cor = ', round(cor(cell_info$sum_norm,cell_info$complete,use = 'pairwise.complete.obs'),digits = 3))) + ylab('% Completeness of proteins in cell')+ xlab('log10(summed Intensity of cell)')+ theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10))
+# 
+# Norm_quality_post_cell_old <-ggplot(cell_info,aes(x = (sum_norm_old),y = complete)) + geom_point() + ggtitle(paste0('Old normalization, Cor = ', round(cor(cell_info$sum_norm_old,cell_info$complete,use = 'pairwise.complete.obs'),digits = 3)))+ theme_bw() + theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10))
+# 
+# Norm_quality_pre_cell + Norm_quality_post_cell_old + Norm_quality_post_cell_saad
+```
+
+
+
+```{r, echo=FALSE,fig.width = 11, fig.height = 4.5}
+
+# Norm_quality_pre_prot <-ggplot(prot_info,aes(x = log10(sums),y = complete)) + geom_point() + 
+#   theme_bw() + ggtitle('No normalization')+ xlab('Mean Protein Intensity') + ylab('# Complete')+ theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10))
+# 
+# Norm_quality_post_prot <-ggplot(prot_info,aes(x = (sum_norm),y = complete)) + geom_point() + 
+#   theme_bw()+ggtitle('With normalization')+ xlab('Mean Protein Intensity') + ylab('# Complete')+ theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10))
+# 
+# 
+# Norm_quality_post_prot_var <-ggplot(prot_info,aes(x = log2(vars),y = complete)) + geom_point() + theme_bw() +ggtitle('With normalization')+ xlab('Protein Variance') + ylab('# Complete')+ theme(axis.title.x = element_text(size = 15),axis.title.y = element_text(size = 15),axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10))
+# 
+#   
+#   #annotate("text", x=.75, y=3,size=12, label= paste0("Cor = ", round(cor(log10(prot_info$sums),log10(prot_info$vars_no_norm),use = 'pairwise.complete.obs'),digits = 3)))
+# 
+# Norm_quality_pre_prot + Norm_quality_post_prot + Norm_quality_post_prot_var
+
+```
+
+## CellenONE_info
+
+### Cell type positions across slide
+```{r, echo=FALSE,fig.width = 15, fig.height = 10}
+
+# print the cell IDs overlayed on the positions of the slide
+ggplot(Trachea_3_7_prot@cellenONE.meta) + 
+  geom_point(aes(x = dropXPos,y = dropYPos,color = sample)) + 
+  geom_text(aes(x = pickupXPos_numb,y = pickupYPos_numb,label = injectWell,size = 5),hjust= .5, vjust=-.6) + 
+  facet_wrap(~field,ncol = 4)+
+  scale_y_reverse() 
+
+
+
+
+```
+
+### Label position across slide
+```{r, echo=FALSE,fig.width = 13, fig.height = 10}
+# print the mTRAQ labels overlayed on the positions of the slide
+ggplot(Trachea_3_7_prot@cellenONE.meta, aes(x = dropXPos,y = dropYPos,color = label)) + 
+   geom_point() +scale_y_reverse()+ facet_wrap(~field,ncol = 4)
+
+```
