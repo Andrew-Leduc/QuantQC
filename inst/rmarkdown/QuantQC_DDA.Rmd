@@ -3,6 +3,12 @@ title: "Quant DO-MS"
 author: ""
 date: "11/29/2022"
 output: html_document
+params:
+  data_path: "data/file1.csv"
+  linker_path: "data/file2.csv"
+  isolation1: "data/file3.csv"
+  isolation2: "data/file4.csv"
+  
 ---
 
 ```{r setup, include=FALSE}
@@ -11,29 +17,24 @@ source('QuantQC_functions.R')
 
 
 # Read in the path to maxQuant file
-#data_path <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_7_pSCoPE/Trachea_pSCoPE_prep1_part2/evidence.txt'
-
-#data_path2 <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_7_pSCoPE/Trachea_3_7_pSCoPE_part1/evidence.txt'
-
-
-data_path <- '/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/Trachea_3_6_pSCoPE_part1/evidence.txt'
+data_path <- params$data_path
 
 
 
 ## Read in meta data (Just links raw file to inject well)
-linker <- read.csv('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/linker_age.csv')
+linker <- read.csv(params$linker_path)
 
 
 
 ### Read in cell isolation files from CellenONE and assign cell type
 
 
-one <-read.delim("/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/Young_isolated.xls")
-one$condition <- 'young'
+one <-read.delim(params$isolation1)
+one$condition <- 'one'
 
 
-two <- read.delim("/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/cellenONE/Trachea_3_6_pSCoPE/old_isolated.xls")
-two$condition <- 'old'
+two <- read.delim(params$isolation2)
+two$condition <- 'two'
 
 
 all_cells <- rbind(one,two)
