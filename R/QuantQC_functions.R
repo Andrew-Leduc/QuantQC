@@ -3,8 +3,6 @@
 
   # For easy navigation option+command+0 to fold all functions on Mac, Alt+0 Windows
 
-library(dplyr)
-
 # nPOP Object
 
 nPOP <- setClass(
@@ -51,33 +49,6 @@ dot_plot <-  theme_bw()+theme(plot.title = element_text(hjust = .5,size = 24),
                               axis.text.y = element_text(size = 12))
 
 
-
-
-### Report Generation
-
-#' test1.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
-Gen_QQC_report_from_list <- function(data_path, linker_path, isolation1, isolation2 = NULL) {
-  # Load necessary libraries
-  library(rmarkdown)
-
-  # Set up parameters for the report
-  params <- list(data_path = data_path, linker_path = linker_path,isolation1 = isolation1, isolation2 = isolation2)
-
-  # Generate the report using knitr
-  rmarkdown::render(input = system.file("rmarkdown/QuantQC_DDA.Rmd", package = "QuantQC"),
-                    output_format = "html_document",
-                    output_file = "output_report.html",
-                    params = params)
-}
 
 
 
@@ -1166,7 +1137,6 @@ inSet_completness <- function(Raw_data, cellenOne_meta){
 #' @export
 EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 
-
   # Compute CVs of cells and negative controls, function outputs CV plot and list of cells with CVs
   CVm <- CVs(nPOP_obj,CV_thresh)
 
@@ -1177,7 +1147,7 @@ EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 
   if(length(good_cells) < 3){
 
-    print('less than three good cells, try increasing CV filter')
+    return('less than three good cells, try increasing CV filter')
 
   }
 
@@ -1258,6 +1228,7 @@ FilterBadCells <- function(nPOP_obj,CV_thresh){
   neg_filter <- nPOP_obj@neg_ctrl.info
   peptide_data <- nPOP_obj@peptide
   neg_filter <- neg_filter %>% dplyr::filter(cvq < CV_thresh)
+  neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
   peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
 
   nPOP_obj@peptide <- peptide_data
@@ -1402,7 +1373,7 @@ KNN_impute<-function(nPOP_obj, k = 3){
       if( length(closest.columns)>k ){
 
         # Replace NA in column X with the mean the same row in k of the most similar columns
-        vec[i]<-mean( dat[ i, closest.columns[1:k] ] )
+        vec[i]<-mean( sc.data[ i, closest.columns[1:k] ] )
 
       }
 
@@ -1411,7 +1382,7 @@ KNN_impute<-function(nPOP_obj, k = 3){
       if( length(closest.columns)<=k ){
 
         # Replace NA in column X with the mean the same row in all of the most similar columns
-        vec[i]<-mean( dat[ i, closest.columns ] )
+        vec[i]<-mean( sc.data[ i, closest.columns ] )
 
       }
 
@@ -1490,7 +1461,7 @@ CVs <- function(nPOP_obj,thresh){
   mat_norm <- Normalize_reference_vector(nPOP_obj@peptide)
 
   mat_norm <- as.data.frame(mat_norm)
-  mat_norm$Protein <- Trachea_3_7_prot@peptide_protein_map$Protein
+  mat_norm$Protein <- nPOP_obj@peptide_protein_map$Protein
   mat_norm$pep <- nPOP_obj@peptide_protein_map$seqcharge
 
   # convert to data.table for fast computation
@@ -1712,9 +1683,9 @@ PlotDataComplete <- function(nPOP_obj){
 #' add_numbers(2, 3)
 #' @export
 SharedPeptideCor <- function(nPOP_obj){
-  peptide_data <- Trachea_3_7_prot@peptide
-  protein_dat <- Trachea_3_7_prot@protein
-  peptide_protein_map <- Trachea_3_7_prot@peptide_protein_map
+  peptide_data <- nPOP_obj@peptide
+  protein_dat <- nPOP_obj@protein
+  peptide_protein_map <- nPOP_obj@peptide_protein_map
 
   peptide_data <- Normalize_reference_vector(peptide_data,log = T)
 
@@ -1846,12 +1817,16 @@ PlotPepCor <- function(nPOP_obj){
 #' @export
 BatchCorrect <- function(nPOP_obj){
 
+  cellenONE_meta <- nPOP_obj@meta.data
+  protein_mat_imputed <- nPOP_obj@protein.imputed
+  protein_mat <- nPOP_obj@protein
 
   # Get meta data for batch correction
-  batch_label  <- cellenONE_meta %>% filter(ID %in% colnames(protein_mat_imputed))
+  batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(protein_mat_imputed))
   batch_label <- batch_label[order(match(batch_label$ID,colnames(protein_mat_imputed))),]
-  linker <- linker %>% dplyr::select(Well,Order)
-  batch_label <- batch_label %>% left_join(linker, by =c('injectWell' = 'Well'))
+
+  #linker <- linker %>% dplyr::select(Well,Order)
+  #batch_label <- batch_label %>% dplyr::left_join(linker, by =c('injectWell' = 'Well'))
 
 
   # Perform batch corrections, possible sources label bias, Every LC/MS runs or groups of LC/MS runs
@@ -1864,6 +1839,13 @@ BatchCorrect <- function(nPOP_obj){
   # Store unimputed matrix
   sc.batch_cor_noimp <- sc.batch_cor
   sc.batch_cor_noimp[is.na(protein_mat)==T] <- NA
+
+  nPOP_obj@protein.imputed <- sc.batch_cor
+  nPOP_obj@protein <- sc.batch_cor_noimp
+
+
+  return(nPOP_obj)
+
 }
 
 #' Add two numbers.
@@ -1876,7 +1858,9 @@ BatchCorrect <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-RunPCA <- function(){
+RunPCA <- function(nPOP_obj){
+  sc.batch_cor <- nPOP_obj@protein.imputed
+
   # Correlation matrix for PCA
   cor_mat <- cor(sc.batch_cor,use = 'pairwise.complete.obs')
 
@@ -1893,6 +1877,7 @@ RunPCA <- function(){
   # Map meta data for plotting PCAs
   scx$ID <-colnames(sc.batch_cor)
   scx <- scx %>% left_join(batch_label,by = c('ID'))
+
 
 }
 

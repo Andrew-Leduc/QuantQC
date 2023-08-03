@@ -9,7 +9,7 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Depends: data.table 
+Depends: data.table, genefilter, sva 
 Remotes: 
   remotes
 RoxygenNote: 7.2.3
