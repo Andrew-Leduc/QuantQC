@@ -35,16 +35,39 @@ nPOP <- setClass(
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-MQ_to_nPOP <- function(path1,linker,PIF_in,PEP_in){
-
+MQ_to_nPOP <- function(data_path,linker,PIF_in,PEP_in){
+  linker <- read.csv(linker)
 
   columns_to_read <- c('Modified sequence','Intensity','Retention time','Charge','Raw file','PEP','PIF', 'Leading razor protein',
                        'Potential contaminant','Reverse', paste0("Reporter intensity ",1:18))
 
   # Read in file
-  data1 <- data.table::fread(path1,select = columns_to_read)
-  #data2 <- data.table::fread(path2,select = columns_to_read)
-  data <- data1
+
+  if(dir.exists(data_path) == F){
+    data <- data.table::fread(data_path,select = columns_to_read)
+  }
+
+  if(dir.exists(data_path)){
+
+    if(str_sub(data_path,-1) != '/'){
+      data_path <- paste0(data_path,'/')
+    }
+
+    raw_files <- list.files(data_path)
+    for(i in 1:length(raw_files)){
+      if(i == 1){
+        data <- data.table::fread(paste0(data_path,raw_files[i]),select = columns_to_read)
+      }
+      if(i > 1){
+        data_next <- data.table::fread(paste0(data_path,raw_files[i]),select = columns_to_read)
+        data_list <- list(data, data_next)
+        data <- data.table::rbindlist(data_list)
+      }
+    }
+  }
+
+
+
 
   # Remove spaces from column names
   colnames(data) <- str_replace_all(colnames(data),' ','.')
@@ -90,7 +113,7 @@ MQ_to_nPOP <- function(path1,linker,PIF_in,PEP_in){
 
 
 
-  nPOP_obj <- new('nPOP',raw_data = data,ms_type = 'DDA')
+  nPOP_obj <- new('nPOP',raw_data = data, meta.data = linker ,ms_type = 'DDA')
 
 
   return(nPOP_obj)

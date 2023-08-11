@@ -10,6 +10,10 @@
 #' add_numbers(2, 3)
 #' @export
 link_cellenONE_Raw <- function(nPOP_obj,allDays){
+  meta <- nPOP_obj@meta.data
+#  for(i in 1:length(allDays)){
+#
+#  }
 
   if(nPOP_obj@ms_type == 'DDA'){
     cellenOne_data <- analyzeCellenONE_TMT(allDays)
@@ -37,6 +41,8 @@ link_cellenONE_Raw <- function(nPOP_obj,allDays){
   cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
 
   nPOP_obj@cellenONE.meta <- cellenOne_data
+
+  #cellID <- cellID %>% left_join(meta, by = c('InjectWell' = 'Well'))
 
   nPOP_obj@meta.data <- cellID
 

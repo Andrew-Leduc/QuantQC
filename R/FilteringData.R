@@ -12,6 +12,29 @@
 #' @export
 EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 
+  if(nrow(nPOP_obj@meta.data)==0){
+    return("Must map sample identites to data first")
+  }
+
+
+  if(nPOP_obj@ms_type == 'DDA'){
+    nPOP_obj <- EvaluateNegativeControls_DDA(nPOP_obj,CV_thresh)
+  }
+
+  if(nPOP_obj@ms_type == 'DIA' |nPOP_obj@ms_type ==  'DIA_C'){
+    nPOP_obj <- EvaluateNegativeControls_DIA(nPOP_obj,CV_thresh)
+  }
+
+
+  return(nPOP_obj)
+
+
+}
+
+EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
+
+
+
   # Compute CVs of cells and negative controls, function outputs CV plot and list of cells with CVs
   CVm <- CVs(nPOP_obj,CV_thresh)
 
@@ -51,6 +74,22 @@ EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 
 }
 
+EvaluateNegativeControls_DIA <- function(nPOP_obj,CV_thresh){
+
+
+  # Count the number of peptides in negative controls and good single cells
+  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@peptide,nPOP_obj@meta.data)
+
+  #Ref_norm_data_filtered <- Ref_norm_data[,colnames(Ref_norm_data) %in% cols_to_keep]
+  Peptide_counts_by_sample$variable <- rownames(Peptide_counts_by_sample)
+
+  nPOP_obj@neg_ctrl.info <- Peptide_counts_by_sample
+
+  return(nPOP_obj)
+
+
+}
+
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -61,7 +100,7 @@ EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotNegCtrl <- function(nPOP_obj,thresh){
+PlotNegCtrl <- function(nPOP_obj,CV_thresh){
 
   plot_data <- nPOP_obj@neg_ctrl.info
 
@@ -77,12 +116,12 @@ PlotNegCtrl <- function(nPOP_obj,thresh){
     font("x.text", size=15) +
     font('title',size=12)+
     coord_cartesian(xlim=c(.1,.65))+
-    annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
-    annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
+    annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
+    annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > CV_thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
+    annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
+    annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < CV_thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
     ggtitle('Cells need atleast 3 proteins with multiple peptides')+
-    rremove("legend") + geom_vline(xintercept=thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
+    rremove("legend") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
 
 
   peps+cvs
@@ -99,15 +138,30 @@ PlotNegCtrl <- function(nPOP_obj,thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-FilterBadCells <- function(nPOP_obj,CV_thresh){
+FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
+
   neg_filter <- nPOP_obj@neg_ctrl.info
   peptide_data <- nPOP_obj@peptide
-  neg_filter <- neg_filter %>% dplyr::filter(cvq < CV_thresh)
   neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
-  peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
 
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+
+    neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
+
+  }
+
+  if(nPOP_obj@ms_type == 'DDA'){
+
+
+    neg_filter <- neg_filter %>% dplyr::filter(cvq < CV_thresh)
+
+
+  }
+
+  peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
   nPOP_obj@peptide <- peptide_data
   return(nPOP_obj)
+
 }
 
 

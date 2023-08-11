@@ -481,8 +481,6 @@ BatchCorrect <- function(nPOP_obj){
   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(protein_mat_imputed))
   batch_label <- batch_label[order(match(batch_label$ID,colnames(protein_mat_imputed))),]
 
-  #linker <- linker %>% dplyr::select(Well,Order)
-  #batch_label <- batch_label %>% dplyr::left_join(linker, by =c('injectWell' = 'Well'))
 
 
   # Perform batch corrections, possible sources label bias, Every LC/MS runs or groups of LC/MS runs

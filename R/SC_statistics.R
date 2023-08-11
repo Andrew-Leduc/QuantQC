@@ -439,7 +439,9 @@ PlotDataComplete <- function(nPOP_obj){
 #' @export
 PlotSCtoCarrierRatio <- function(nPOP_obj){
 
-  if(nPOP_obj@type = "DDA"){
+  do_plot <- "No carrier used"
+
+  if(nPOP_obj@ms_type == "DDA"){
 
     sc.data <- nPOP_obj@raw_data
     cellenOne_meta <- nPOP_obj@meta.data
@@ -453,7 +455,6 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
     sc.data <- sc.data[,c('Raw.file','Well',paste0("Reporter.intensity.",5:18))]
     sc.data <- reshape2::melt(sc.data, id = c('Raw.file','Well'))
 
-    sc.data <- sc.data %>% filter(value < 2)
     sc.data$ID <- paste0(sc.data$Well,sc.data$variable)
 
     sc.data <- sc.data %>% group_by(ID) %>% dplyr::summarise(value = median(value,na.rm = T))
@@ -462,17 +463,34 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
 
     sc.data$value <- 1/sc.data$value
 
-    ggplot(sc.data, aes(x = sample, y = value)) + geom_boxplot() + ylab('# cells / carrier amount') +dot_plot
+    do_plot <- ggplot(sc.data, aes(x = sample, y = value)) + geom_boxplot() + ylab('# cells / carrier amount') +dot_plot
 
   }
 
-  if(nPOP_obj@type == "DIA_C"){
+  if(nPOP_obj@ms_type == "DIA_C"){
+
+    No_filt_ratio <- nPOP_obj@peptide #%>% dplyr::select(cells_to_keep)
+    No_filt_ratio <- melt(No_filt_ratio)
+    No_filt_ratio_cell <- No_filt_ratio %>% dplyr::group_by(variable) %>% dplyr::summarise(value_new = median(value,na.rm = T))
+    No_filt_ratio_cell <- No_filt_ratio_cell %>% left_join(cellenONE_meta,by = c('variable'='ID'))
+
+
+    Filt_ratio <- nPOP_obj@peptide #%>% dplyr::select(good_cells$variable)
+    Filt_ratio <- melt(Filt_ratio)
+    Filt_ratio_cell <- Filt_ratio %>% group_by(variable) %>% dplyr::summarise(value_new = median(value,na.rm = T))
+    Filt_ratio_cell <- Filt_ratio_cell %>% left_join(cellenONE_meta,by = c('variable'='ID'))
+
+
+    Filt_rat_plot <- ggplot(Filt_ratio_cell, aes(y = 1/(value_new), x =  sample)) + geom_boxplot() +
+      ylab('# single cells in carrier') + ggtitle(paste0(ChQval,' CH qval Filt: Carrier is median ', round(median(1/Filt_ratio$value,na.rm = T),2),' single cells'))
+    NoFilt_rat_plot <- ggplot(No_filt_ratio_cell, aes(y = 1/(value_new), x =  sample)) + geom_boxplot() + ylab('# single cells in carrier') + ggtitle(paste0('NO CH qval filt: Carrier is median ', round(median(1/No_filt_ratio$value,na.rm = T),2),' single cells'))
+
+
+    do_plot <- NoFilt_rat_plot+ Filt_rat_plot
 
 
   }
-  if(nPOP_obj@type == "DIA"){
-    return("No carrier used")
-  }
 
+  do_plot
 
 }
