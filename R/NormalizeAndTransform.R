@@ -23,11 +23,11 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 
   sc.data <- as.data.table(sc.data)
 
-  sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well',paste0("Reporter.intensity.",5:18))]
-  sc.data <- data.table::melt(sc.data, id = c('seqcharge','Leading.razor.protein','Raw.file','Well'))
+  sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",5:18))]
+  sc.data <- data.table::melt(sc.data, id = c('seqcharge','Leading.razor.protein','Raw.file','Well','plate'))
 
   sc.data <- sc.data[sc.data$value < 2.5,]
-  sc.data$ID <- paste0(sc.data$Well,sc.data$variable)
+  sc.data$ID <- paste0(sc.data$Well,sc.data$plate,sc.data$variable)
 
   sc.data <- data.table::dcast(sc.data,Leading.razor.protein+seqcharge~ID,value.var = 'value')
 
@@ -251,7 +251,10 @@ cellXgene <- function(Raw_data, carrier, plex_used ,quant){
 #' @export
 KNN_impute<-function(nPOP_obj, k = 3){
 
+
   sc.data <- nPOP_obj@protein
+
+
 
   # Create a copy of the data, NA values to be filled in later
   sc.data.imp<-sc.data
@@ -321,7 +324,10 @@ KNN_impute<-function(nPOP_obj, k = 3){
   sc.data.imp <- Normalize_reference_vector_log(sc.data.imp)
 
 
+
   nPOP_obj@protein.imputed <- sc.data.imp
+
+
 
   return(nPOP_obj)
 
@@ -501,3 +507,39 @@ BatchCorrect <- function(nPOP_obj){
   return(nPOP_obj)
 
 }
+
+# BatchCorrectPeptide <- function(nPOP_obj){
+#
+#   cellenONE_meta <- nPOP_obj@meta.data
+#
+#   peptide_mat <- nPOP_obj@peptide
+#   peptide_mat <- Normalize_reference_vector(peptide_mat, log = T)
+#   nPOP_obj@peptide <- peptide_mat
+#
+#   nPOP_obj <- KNN_impute(nPOP_obj, k = 3, dat = 'peptide')
+#   peptide_mat_imputed <- nPOP_obj@peptide.imputed
+#
+#   # Get meta data for batch correction
+#   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(peptide_mat_imputed))
+#   batch_label <- batch_label[order(match(batch_label$ID,colnames(peptide_mat_imputed))),]
+#
+#
+#
+#   # Perform batch corrections, possible sources label bias, Every LC/MS runs or groups of LC/MS runs
+#   #sc.batch_cor <- ComBat(protein_mat_imputed, batch=factor(batch_label$label))
+#   sc.batch_cor <- limma::removeBatchEffect(peptide_mat_imputed,batch = batch_label$injectWell, batch2 = batch_label$label)
+#
+#   # Re normalize and NA out imputed values
+#   sc.batch_cor <- Normalize_reference_vector_log(sc.batch_cor)
+#
+#   # Store unimputed matrix
+#   sc.batch_cor_noimp <- sc.batch_cor
+#   sc.batch_cor_noimp[is.na(peptide_mat)==T] <- NA
+#
+#   nPOP_obj@peptide.imputed <- sc.batch_cor
+#   nPOP_obj@peptide <- sc.batch_cor_noimp
+#
+#
+#   return(nPOP_obj)
+#
+# }

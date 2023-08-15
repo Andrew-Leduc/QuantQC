@@ -8,7 +8,7 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-RunPCA <- function(nPOP_obj){
+ComputePCA <- function(nPOP_obj){
   sc.batch_cor <- nPOP_obj@protein.imputed
   cellenONE_meta <- nPOP_obj@meta.data
 
@@ -54,8 +54,8 @@ PlotPCA <- function(nPOP_obj, by = 'Condition'){
   }
 
   if(by == 'Run order'){
-    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = prot_total)) + geom_point()+
-      dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
+    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = Order)) + geom_point()+
+      dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$Order,na.rm = T), low = 'red',mid = 'white', high = 'blue')
   }
 
   pca_plot
@@ -74,15 +74,15 @@ ComputeUMAP <- function(nPOP_obj){
   all.genes <- rownames(protein_Data)
   prot_umap <- ScaleData(prot_umap, features = all.genes)
   prot_umap@assays$RNA@scale.data <- protein_Data
-  prot_umap <- RunPCA(prot_umap, features = all.genes)
+  prot_umap <- Seurat::RunPCA(prot_umap, features = all.genes)
   prot_umap <- FindNeighbors(prot_umap, dims = 1:6)
-  prot_umap <- FindClusters(prot_umap, resolution = 1.5)
+  prot_umap <- FindClusters(prot_umap, resolution = 0.5)
   prot_umap <- RunUMAP(prot_umap, dims = 1:6)
 
   um_plot <- as.data.frame(prot_umap@reductions[["umap"]]@cell.embeddings)
 
   um_plot$sample <- scx$sample
-  um_plot$cluster <- prot_umap@meta.data[["RNA_snn_res.1.5"]]
+  um_plot$cluster <- prot_umap@meta.data[["RNA_snn_res.0.5"]]
   um_plot$lab <- scx$label
   um_plot$prot_total <- scx$prot_total
 
@@ -128,4 +128,25 @@ PlotUMAP <- function(nPOP_obj, by = 'Cluster'){
 
 }
 
+
+FeatureUMAP <- function(nPOP_obj, prot = NA, imputed = T){
+  UMAP_plot <- nPOP_obj@reductions[['UMAP']]
+
+  if(imputed == T){
+    prot_mat <- nPOP_obj@protein.imputed
+  }
+  if(imputed == F){
+    prot_mat <- nPOP_obj@protein
+  }
+
+  UMAP_plot$protein <- prot_mat[prot,]
+
+  umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = protein)) + geom_point()+
+      dot_plot + scale_color_gradient2(midpoint = 0, low = 'blue',mid = 'white', high = 'red')
+
+
+
+  umap_plot
+
+}
 

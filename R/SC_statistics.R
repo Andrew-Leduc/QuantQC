@@ -101,12 +101,15 @@ CVs <- function(nPOP_obj,thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-SharedPeptideCor <- function(nPOP_obj){
+SharedPeptideCor <- function(nPOP_obj, res = 'sc'){
   peptide_data <- nPOP_obj@peptide
   protein_dat <- nPOP_obj@protein
   peptide_protein_map <- nPOP_obj@peptide_protein_map
 
+
   peptide_data <- Normalize_reference_vector(peptide_data,log = T)
+
+
 
   # Initialized empty matricies to store correlations between peptides
   mat_stor = matrix(data = NA,nrow = 10000,ncol = 3)
@@ -444,7 +447,10 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
   if(nPOP_obj@ms_type == "DDA"){
 
     sc.data <- nPOP_obj@raw_data
+    good_cells <- colnames(nPOP_obj@peptide)
+
     cellenOne_meta <- nPOP_obj@meta.data
+    good_cells_p_negs <- c(good_cells,cellenOne_meta$ID[cellenOne_meta$sample == 'neg'])
 
     ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",1:18))
 
@@ -452,11 +458,11 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
     sc.data[, ri.index] <- sc.data[, ri.index] / sc.data[, ri.index[1]]
 
 
-    sc.data <- sc.data[,c('Raw.file','Well',paste0("Reporter.intensity.",5:18))]
-    sc.data <- reshape2::melt(sc.data, id = c('Raw.file','Well'))
+    sc.data <- sc.data[,c('Raw.file','Well','plate',paste0("Reporter.intensity.",5:18))]
+    sc.data <- reshape2::melt(sc.data, id = c('Raw.file','Well','plate'))
 
-    sc.data$ID <- paste0(sc.data$Well,sc.data$variable)
-
+    sc.data$ID <- paste0(sc.data$Well,sc.data$plate,sc.data$variable)
+    sc.data <- sc.data %>% filter(ID %in% good_cells_p_negs)
     sc.data <- sc.data %>% group_by(ID) %>% dplyr::summarise(value = median(value,na.rm = T))
 
     sc.data <- sc.data %>% dplyr::left_join(cellenOne_meta, by = c('ID'))
@@ -494,3 +500,219 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
   do_plot
 
 }
+
+
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
+PlotCellSizeVsIntensity <- function(nPOP_obj, type = 'sample'){
+  meta <- nPOP_obj@meta.data
+
+  good_cells <- colnames(nPOP_obj@peptide)
+  meta <- meta %>% dplyr::filter(ID %in% good_cells)
+
+  if(type == 'sample'){
+    plot_ <-    ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = sample)) +
+                     geom_point() + ggtitle(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'))
+
+    return(plot_)
+  }
+
+  if(type == 'Run order'){
+    plot_ <-    ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = Order)) +
+      geom_point() + ggtitle(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'))+
+      scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')
+
+    return(plot_)
+  }
+
+
+}
+
+
+
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
+ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
+
+  if(is.null(nPOP_obj@reductions[['UMAP']])==F){
+
+
+    raw_pep_intense <- nPOP_obj@raw_data
+    raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Reporter.intensity.1,na.rm=T))
+    raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
+
+
+    # Get 4 best peptides
+
+
+    clusters <- nPOP_obj@reductions[['UMAP']]
+    prot_map <- nPOP_obj@peptide_protein_map %>% filter(Protein == prot)
+
+    raw_pep_intense_prot <- raw_pep_intense %>% filter(seqcharge %in% prot_map$seqcharge)
+    if(nrow(raw_pep_intense_prot)>4){
+      raw_pep_intense_prot <- raw_pep_intense_prot[1:4,]
+    }
+    if(nrow(raw_pep_intense_prot)==1){
+      return('Only 1 peptide')
+    }
+
+    prot_map <- prot_map %>% filter(seqcharge %in% raw_pep_intense_prot$seqcharge)
+    pep_mat <- (Normalize_reference_vector(nPOP_obj@peptide,log = T))
+    rownames(pep_mat) <- nPOP_obj@peptide_protein_map$seqcharge
+
+    pep_mat <- pep_mat[prot_map$seqcharge,]
+
+    pep_mat <- reshape2::melt(pep_mat)
+    clusters$ID <- rownames(clusters)
+    pep_mat <- pep_mat %>% left_join(clusters, by = c('Var2' = 'ID'))
+
+    pep_mat_values <-  pep_mat %>% group_by(Var1,cluster) %>%
+      summarise(med_abs = median(value,na.rm = T))
+
+    pep_mat_SD<- pep_mat %>% group_by(Var1,cluster) %>%
+      summarise(sd_error = sd(value,na.rm = T)/sum(is.na(value)==F))
+
+    pep_mat_count <- pep_mat %>% group_by(Var1,cluster) %>%
+      summarise(numb_data = sum(is.na(value)==F)/(sum(is.na(value)==F)+sum(is.na(value)==T)))
+
+    prot_values <- pep_mat %>% group_by(cluster) %>%
+      summarise(med_abs = median(value,na.rm = T))
+
+    for(i in 1:nrow(raw_pep_intense_prot)){
+      prot_values_pep1 <- prot_values
+      prot_values_pep1$Var1 <- unique(pep_mat_values$Var1)[i]
+      if(i == 1){
+        prot_values <- prot_values_pep1
+      }else{
+        prot_values <- rbind(prot_values,prot_values_pep1)
+      }
+
+    }
+
+    prot_values$sd_error <- 0
+    prot_values$numb_dp <- 0
+    prot_values$numb_dp_z <- 0
+    prot_values$FractionCellsExpress <- " Less 33%"
+
+    pep_mat_values$sd_error <- pep_mat_SD$sd_error
+    pep_mat_values$numb_dp <- pep_mat_count$numb_data
+    pep_mat_values$numb_dp_z <- scale(pep_mat_values$numb_dp)[,1]
+
+    pep_mat_values$Var3 <- pep_mat_values$Var1
+    prot_values$Var3 <- 'Protein'
+
+
+    # Transform z-scores into quantiles
+    pep_mat_values$FractionCellsExpress <- cut(pep_mat_values$numb_dp, breaks = 3,
+                                 labels = c( " Less 33%", "Greater 33%", "Greater 66%"))
+
+
+
+    all <- rbind(pep_mat_values,prot_values)
+
+    #pep_mat_values_test <- pep_mat_values
+
+    #pep_mat_values_test$prote <- prot_values$med_abs
+
+
+    all$cluster <- (as.character(all$cluster))
+
+    if(type == 'line'){
+      plot_ <- ggplot(all, aes(x = cluster, y = med_abs, color = Var3, group = Var3)) +
+        geom_line( aes(color = Var3)) +
+        geom_point(aes(size = FractionCellsExpress,color = Var3)) +
+        scale_size_manual(values = c(" Less 33%" = 2, "Greater 33%" = 4, "Greater 66%" = 6)) +
+        geom_errorbar(aes(ymin = med_abs - sd_error, ymax = med_abs + sd_error, color = Var3), width = 0.2) +
+        labs(x = "X-axis", y = "Y-axis") +
+        ggtitle(paste0(prot,", peptide agreemeent between clusters")) +
+        theme_bw() + scale_colour_manual(values = c("red", "blue", "green","purple","black"))+
+        xlab('Clusters') +
+        facet_wrap(vars(Var1), scales = "free_y") +
+        theme(strip.background = element_blank())+ylab('Log2(Abs)')
+
+      return(plot_)
+    }
+
+    if(type == 'bubble'){
+
+      all$var4 <- NA
+      all$var4[all$Var3 == 'Protein'] <- 'Protein'
+      all$var4[all$Var3 != 'Protein'] <- 'Peptide'
+
+      all$FractionCellsExpress[all$Var3 == 'Protein'] <- 'Greater 66%'
+      all$FractionCellsExpress[all$FractionCellsExpress == 'Less 33%'] <- ' Less 33%'
+
+      plot_ <- ggplot(all, aes(x = cluster, y = Var3, fill = med_abs)) +
+        geom_point(aes(size = FractionCellsExpress), shape = 21) + theme_bw() +
+        scale_size_manual(values = c(" Less 33%" = 3, "Greater 33%" = 5, "Greater 66%" = 8))+
+        scale_fill_gradient2(midpoint = 0, low = 'blue',mid = 'white', high = 'red')+
+        facet_grid(vars(var4),scales = "free_y", space = "free_y") + ylab('')
+
+      return(plot_)
+
+
+
+    }
+
+
+
+  }
+
+
+}
+
+
+ImputationComparison <- function(nPOP_obj, cluster = 1){
+  cluster = 1
+  clusters <- nPOP_obj@reductions[['UMAP']]
+  clusters$ID <- rownames(clusters)
+
+
+
+  prot_imp <- nPOP_obj@protein.imputed
+  prot_noimp <- nPOP_obj@protein
+
+
+  prot_imp <- reshape2::melt(prot_imp)
+  prot_imp <- prot_imp %>% left_join(clusters, by = c('Var2' = 'ID'))
+  prot_imp <- prot_imp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
+  prot_imp <- prot_imp %>% filter(cluster == 2)
+
+  prot_noimp <- reshape2::melt(prot_noimp)
+  prot_noimp <- prot_noimp %>% left_join(clusters, by = c('Var2' = 'ID'))
+  prot_noimp <- prot_noimp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
+  prot_noimp <- prot_noimp %>% filter(cluster == 2)
+
+
+  prot_noimp$imp <- prot_imp$prot_score
+
+  ggplot(prot_noimp, aes(x = prot_score, y = imp)) + geom_point()+ theme_bw()+
+    xlab('No Imputation') + ylab('With Imputation') +
+      ggtitle(paste0('Cluster ',cluster, ' Protein Averages, Cor = ',
+              round(cor(prot_noimp$prot_score,prot_imp$prot_score, use = 'pairwise.complete.obs'),3)))
+
+
+
+
+
+
+}
+
+
+

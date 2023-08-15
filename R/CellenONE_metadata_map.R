@@ -10,7 +10,7 @@
 #' add_numbers(2, 3)
 #' @export
 link_cellenONE_Raw <- function(nPOP_obj,allDays){
-  meta <- nPOP_obj@meta.data
+  linker <- nPOP_obj@meta.data
 #  for(i in 1:length(allDays)){
 #
 #  }
@@ -42,7 +42,12 @@ link_cellenONE_Raw <- function(nPOP_obj,allDays){
 
   nPOP_obj@cellenONE.meta <- cellenOne_data
 
-  #cellID <- cellID %>% left_join(meta, by = c('InjectWell' = 'Well'))
+  cellID$WP <- paste0(cellID$plate,cellID$injectWell)
+  cellID$plate <- NULL
+  linker$WP <- paste0(linker$plate,linker$Well)
+
+  cellID <- cellID %>% left_join(linker, by = c('WP'))
+  cellID$WP <- NULL
 
   nPOP_obj@meta.data <- cellID
 
@@ -216,9 +221,11 @@ analyzeCellenONE_TMT <- function(allDays){
   # Each tag was dispensed multiple times so maps to multiple wells of plate
   cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 4))
 
+  # only one plate TMT
+  cellenOne_data$plate <- 1
 
   # Create cell ID to match MaxQuant report
-  cellenOne_data$ID <- paste0(cellenOne_data$injectWell,cellenOne_data$label)
+  cellenOne_data$ID <- paste0(cellenOne_data$injectWell,cellenOne_data$plate,cellenOne_data$label)
 
 
 

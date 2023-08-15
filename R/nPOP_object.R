@@ -6,21 +6,20 @@ nPOP <- setClass(
     ms_type = 'character',
     plex = 'numeric',
     raw_data = 'data.frame',
+
     peptide = 'matrix',
     protein = 'matrix',
     protein.imputed = 'matrix',
     peptide_protein_map = 'data.frame',
+
     cellenONE.meta = 'data.frame',
     meta.data = 'data.frame',
     run_order.statistics = 'list',
     pep.cor = 'list',
     neg_ctrl.info = 'data.frame',
-    graphs = 'list',
-    neighbors = 'list',
     reductions = 'list',
-    images = 'list',
-    project.name = 'character',
-    misc = 'list'
+    project.name = 'character'
+
   )
 )
 

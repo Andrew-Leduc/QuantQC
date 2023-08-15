@@ -152,7 +152,9 @@ FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
 
   if(nPOP_obj@ms_type == 'DDA'){
 
-
+    if(is.na(min_pep)==F){
+      neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
+    }
     neg_filter <- neg_filter %>% dplyr::filter(cvq < CV_thresh)
 
 
