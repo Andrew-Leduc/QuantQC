@@ -552,7 +552,8 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
 
   if(is.null(nPOP_obj@reductions[['UMAP']])==F){
 
-
+    #nPOP_obj <- Trachea_3_7_prot
+    #prot = "P33267"
     raw_pep_intense <- nPOP_obj@raw_data
     raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Reporter.intensity.1,na.rm=T))
     raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
@@ -580,19 +581,21 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
 
     pep_mat <- reshape2::melt(pep_mat)
     clusters$ID <- rownames(clusters)
-    pep_mat <- pep_mat %>% left_join(clusters, by = c('Var2' = 'ID'))
+    pep_mat <- pep_mat %>%  dplyr::left_join(clusters, by = c('Var2' = 'ID'))
 
-    pep_mat_values <-  pep_mat %>% group_by(Var1,cluster) %>%
-      summarise(med_abs = median(value,na.rm = T))
+    pep_mat_values <-  pep_mat %>% dplyr::group_by(Var1,cluster) %>%
+      dplyr::summarise(med_abs = median(value,na.rm = T))
 
-    pep_mat_SD<- pep_mat %>% group_by(Var1,cluster) %>%
-      summarise(sd_error = sd(value,na.rm = T)/sum(is.na(value)==F))
+    pep_mat_SD<- pep_mat %>%  dplyr::group_by(Var1,cluster) %>%
+      dplyr::summarise(sd_error = sd(value,na.rm = T)/sum(is.na(value)==F))
 
-    pep_mat_count <- pep_mat %>% group_by(Var1,cluster) %>%
-      summarise(numb_data = sum(is.na(value)==F)/(sum(is.na(value)==F)+sum(is.na(value)==T)))
+    pep_mat_count <- pep_mat %>%  dplyr::group_by(Var1,cluster) %>%
+      dplyr::summarise(numb_data = sum(is.na(value)==F)/(sum(is.na(value)==F)+sum(is.na(value)==T)))
 
-    prot_values <- pep_mat %>% group_by(cluster) %>%
-      summarise(med_abs = median(value,na.rm = T))
+    prot_values <- pep_mat %>%  dplyr::group_by(cluster) %>%
+      dplyr::summarise(med_abs = median(value,na.rm = T))
+
+
 
     for(i in 1:nrow(raw_pep_intense_prot)){
       prot_values_pep1 <- prot_values
@@ -634,19 +637,23 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     all$cluster <- (as.character(all$cluster))
 
     if(type == 'line'){
-      plot_ <- ggplot(all, aes(x = cluster, y = med_abs, color = Var3, group = Var3)) +
-        geom_line( aes(color = Var3)) +
-        geom_point(aes(size = FractionCellsExpress,color = Var3)) +
-        scale_size_manual(values = c(" Less 33%" = 2, "Greater 33%" = 4, "Greater 66%" = 6)) +
-        geom_errorbar(aes(ymin = med_abs - sd_error, ymax = med_abs + sd_error, color = Var3), width = 0.2) +
-        labs(x = "X-axis", y = "Y-axis") +
-        ggtitle(paste0(prot,", peptide agreemeent between clusters")) +
-        theme_bw() + scale_colour_manual(values = c("red", "blue", "green","purple","black"))+
-        xlab('Clusters') +
-        facet_wrap(vars(Var1), scales = "free_y") +
-        theme(strip.background = element_blank())+ylab('Log2(Abs)')
+      if(length(all$Var1) > 0){
 
-      return(plot_)
+
+        plot_ <- ggplot(all, aes(x = cluster, y = med_abs, color = Var3, group = Var3)) +
+          geom_line( aes(color = Var3)) +
+          geom_point(aes(size = FractionCellsExpress,color = Var3)) +
+          scale_size_manual(values = c(" Less 33%" = 2, "Greater 33%" = 4, "Greater 66%" = 6)) +
+          geom_errorbar(aes(ymin = med_abs - sd_error, ymax = med_abs + sd_error, color = Var3), width = 0.2) +
+          labs(x = "X-axis", y = "Y-axis") +
+          ggtitle(paste0(prot,", peptide agreemeent between clusters")) +
+          theme_bw() + scale_colour_manual(values = c("red", "blue", "green","purple","black"))+
+          xlab('Clusters') +
+          ggplot2::facet_wrap(~Var1, scales = "free_y") +
+          theme(strip.background = element_blank())+ylab('Log2(Abs)')
+
+        return(plot_)
+      }
     }
 
     if(type == 'bubble'){
