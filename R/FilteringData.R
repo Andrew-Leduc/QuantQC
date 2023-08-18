@@ -21,8 +21,8 @@ EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
     nPOP_obj <- EvaluateNegativeControls_DDA(nPOP_obj,CV_thresh)
   }
 
-  if(nPOP_obj@ms_type == 'DIA' |nPOP_obj@ms_type ==  'DIA_C'){
-    nPOP_obj <- EvaluateNegativeControls_DIA(nPOP_obj,CV_thresh)
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type ==  'DIA_C'){
+    nPOP_obj <- EvaluateNegativeControls_DIA(nPOP_obj)
   }
 
 
@@ -51,7 +51,7 @@ EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
 
 
   # Count the number of peptides in negative controls and good single cells
-  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@peptide,nPOP_obj@meta.data,good_cells)
+  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@matricies@peptide,nPOP_obj@meta.data,good_cells)
 
 
   # Plot distributions
@@ -74,11 +74,11 @@ EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
 
 }
 
-EvaluateNegativeControls_DIA <- function(nPOP_obj,CV_thresh){
+EvaluateNegativeControls_DIA <- function(nPOP_obj){
 
 
   # Count the number of peptides in negative controls and good single cells
-  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@peptide,nPOP_obj@meta.data)
+  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@matricies@peptide,nPOP_obj@meta.data)
 
   #Ref_norm_data_filtered <- Ref_norm_data[,colnames(Ref_norm_data) %in% cols_to_keep]
   Peptide_counts_by_sample$variable <- rownames(Peptide_counts_by_sample)
@@ -102,29 +102,40 @@ EvaluateNegativeControls_DIA <- function(nPOP_obj,CV_thresh){
 #' @export
 PlotNegCtrl <- function(nPOP_obj,CV_thresh){
 
+
   plot_data <- nPOP_obj@neg_ctrl.info
 
-  peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
+  if(nPOP_obj@ms_type == 'DDA'){
 
-  CV_mat_pos <- plot_data %>% filter(value == 'cell')
-  CV_mat_neg <- plot_data %>% filter(value == 'neg')
+    peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
 
-  cvs <- ggplot(data=plot_data, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + theme_pubr() +
-    scale_fill_manual(values=my_col3) +
-    xlab("CV of peptides mapping to a protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
-    font("xylab", size=17) +
-    font("x.text", size=15) +
-    font('title',size=12)+
-    coord_cartesian(xlim=c(.1,.65))+
-    annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > CV_thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
-    annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < CV_thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
-    ggtitle('Cells need atleast 3 proteins with multiple peptides')+
-    rremove("legend") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
+    CV_mat_pos <- plot_data %>% filter(value == 'cell')
+    CV_mat_neg <- plot_data %>% filter(value == 'neg')
+
+    cvs <- ggplot(data=plot_data, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + theme_pubr() +
+      scale_fill_manual(values=my_col3) +
+      xlab("CV of peptides mapping to a protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
+      font("xylab", size=17) +
+      font("x.text", size=15) +
+      font('title',size=12)+
+      coord_cartesian(xlim=c(.1,.65))+
+      annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
+      annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > CV_thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
+      annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
+      annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < CV_thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
+      ggtitle('Cells need atleast 3 proteins with multiple peptides')+
+      rremove("legend") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
 
 
-  peps+cvs
+    return(peps+cvs)
+  }
+
+
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type ==  'DIA_C'){
+    peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
+
+    return(peps)
+  }
 
 }
 
@@ -141,17 +152,17 @@ PlotNegCtrl <- function(nPOP_obj,CV_thresh){
 FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
 
   neg_filter <- nPOP_obj@neg_ctrl.info
-  peptide_data <- nPOP_obj@peptide
-  neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
+  peptide_data <- nPOP_obj@matricies@peptide
+
 
   if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
-
+    neg_filter <- neg_filter %>% dplyr::filter(type != 'negative ctrl')
     neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
 
   }
 
   if(nPOP_obj@ms_type == 'DDA'){
-
+    neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
     if(is.na(min_pep)==F){
       neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
     }
@@ -161,7 +172,7 @@ FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
   }
 
   peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
-  nPOP_obj@peptide <- peptide_data
+  nPOP_obj@matricies@peptide <- peptide_data
   return(nPOP_obj)
 
 }

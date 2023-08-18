@@ -15,10 +15,10 @@
 CVs <- function(nPOP_obj,thresh){
   cell_id <- nPOP_obj@meta.data
   # Normalize peptide data
-  mat_norm <- Normalize_reference_vector(nPOP_obj@peptide)
+  mat_norm <- Normalize_reference_vector(nPOP_obj@matricies@peptide)
 
   mat_norm <- as.data.frame(mat_norm)
-  mat_norm$Protein <- nPOP_obj@peptide_protein_map$Protein
+  mat_norm$Protein <- nPOP_obj@matricies@peptide_protein_map$Protein
   mat_norm$pep <- nPOP_obj@peptide_protein_map$seqcharge
 
   # convert to data.table for fast computation
@@ -86,8 +86,6 @@ CVs <- function(nPOP_obj,thresh){
 
 
 
-
-
 ### Peptide correlations
 
 
@@ -102,9 +100,9 @@ CVs <- function(nPOP_obj,thresh){
 #' add_numbers(2, 3)
 #' @export
 SharedPeptideCor <- function(nPOP_obj, res = 'sc'){
-  peptide_data <- nPOP_obj@peptide
-  protein_dat <- nPOP_obj@protein
-  peptide_protein_map <- nPOP_obj@peptide_protein_map
+  peptide_data <- nPOP_obj@matricies@peptide
+  protein_dat <- nPOP_obj@matricies@protein
+  peptide_protein_map <- nPOP_obj@matricies@peptide_protein_map
 
 
   peptide_data <- Normalize_reference_vector(peptide_data,log = T)
@@ -374,23 +372,53 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 #' add_numbers(2, 3)
 #' @export
 PlotProtAndPep <- function(nPOP_obj){
-
+  nPOP_obj <- Trachea_3_7_prot
   # count peptide numbers
-  numb_pep <- colSums(is.na(nPOP_obj@peptide)==F)
+  numb_pep <- colSums(is.na(nPOP_obj@matricies@peptide)==F)
   numb_pep <- as.data.frame(numb_pep)
   colnames(numb_pep) <- 'Number_precursors'
 
   # count protein numbers
-  numb_prot <- colSums(is.na(nPOP_obj@protein)==F)
+  numb_prot <- colSums(is.na(nPOP_obj@matricies@protein)==F)
   numb_prot <- as.data.frame(numb_prot)
   colnames(numb_prot) <- 'Number_proteins'
 
   # Plot peptide and protein numbers
-  pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
+  if(nPOP_obj@ms_type == 'DDA'){
+    pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
 
-  prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
+    prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
 
-  pep_number+prot_number
+    return(pep_number+prot_number)
+  }
+
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+
+    numb_pep_NF <- colSums(nPOP_obj@matricies@peptide_mask==T)
+    numb_pep_NF <- as.data.frame(numb_pep_NF)
+    colnames(numb_pep_NF) <- 'Number_precursors'
+    numb_pep_NF$Filter <- 'No Ch Qvalue Filter'
+    numb_pep$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+
+    numb_pep <- rbind(numb_pep,numb_pep_NF)
+
+    # count protein numbers
+    numb_prot_NF <- colSums(nPOP_obj@matricies@protein_mask==T)
+    numb_prot_NF <- as.data.frame(numb_prot_NF)
+    colnames(numb_prot_NF) <- 'Number_proteins'
+    numb_prot_NF$Filter <- 'No Ch Qvalue Filter'
+    numb_prot$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+
+    numb_prot <- rbind(numb_prot,numb_prot_NF)
+
+    pep_number <- ggplot(numb_pep, aes(x = Number_precursors, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
+
+    prot_number<- ggplot(numb_prot, aes(x = Number_proteins, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
+
+
+    return(pep_number+prot_number)
+  }
+
 }
 
 #' Add two numbers.
@@ -404,27 +432,66 @@ PlotProtAndPep <- function(nPOP_obj){
 #' add_numbers(2, 3)
 #' @export
 PlotDataComplete <- function(nPOP_obj){
-
-  data <- nPOP_obj@protein
+  nPOP_obj <- Trachea_3_7_prot
+  data <- nPOP_obj@matricies@protein
 
   missingness_cell_filt <- colSums(is.na(data) == F)/nrow(data)
+  missingness_cell_mat <- reshape2::melt(missingness_cell_filt)
+
   missingness_prot_filt <- rowSums(is.na(data)==F)/ncol(data)
+  missingness_prot_mat <- reshape2::melt(missingness_prot_filt)
 
-  missingness_prot_mat <- (missingness_prot_filt)
-  missingness_prot_mat <- reshape2::melt(missingness_prot_mat)
+  if(nPOP_obj@ms_type == 'DDA'){
+    mp <- ggplot(missingness_prot_mat, aes(x = value)) +
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(protein_mat) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
 
-  missingness_cell_mat <- missingness_cell_filt
-  missingness_cell_mat <- reshape2::melt(missingness_cell_mat)
-
-  mp <- ggplot(missingness_prot_mat, aes(x = value)) +
-    geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(protein_mat) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
-
-  mc <- ggplot(missingness_cell_mat, aes(x = value)) +
-    geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
-    xlab('fraction values present')+dot_plot
+    mc <- ggplot(missingness_cell_mat, aes(x = value)) +
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
+      xlab('fraction values present')+dot_plot
 
 
-  mp+mc
+    return(mp+mc)
+  }
+
+
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+
+    missingness_cell_NF <- colSums(nPOP_obj@matricies@protein_mask)/nrow(data)
+    missingness_cell_mat_NF <- reshape2::melt(missingness_cell_NF)
+    colnames(missingness_cell_mat_NF) <- 'Cell_miss'
+    missingness_cell_mat_NF$Filter <- 'No Ch Qvalue Filter'
+    colnames(missingness_cell_mat) <- 'Cell_miss'
+    missingness_cell_mat$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+
+
+    missingness_cell_mat <- rbind(missingness_cell_mat,missingness_cell_mat_NF)
+
+    # count protein numbers
+    missingness_prot_NF <- rowSums(nPOP_obj@matricies@protein_mask)/ncol(data)
+    missingness_prot_mat_NF <- reshape2::melt(missingness_prot_NF)
+    colnames(missingness_prot_mat_NF) <- 'Miss_proteins'
+    missingness_prot_mat_NF$Filter <- 'No Ch Qvalue Filter'
+    colnames(missingness_prot_mat) <- 'Miss_proteins'
+    missingness_prot_mat$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+
+    missingness_prot_mat <- rbind(missingness_prot_mat,missingness_prot_mat_NF)
+
+    mp <- ggplot(missingness_prot_mat, aes(x = Miss_proteins, fill = Filter)) +
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
+      xlab('fraction values present')+dot_plot
+    mc <-  ggplot(missingness_prot_mat, aes(x = Miss_proteins,fill = Filter)) +
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
+
+
+
+    return(mp+mc)
+  }
+
+
+
+
+
+
 
 
 }
@@ -475,24 +542,17 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
 
   if(nPOP_obj@ms_type == "DIA_C"){
 
-    No_filt_ratio <- nPOP_obj@peptide #%>% dplyr::select(cells_to_keep)
-    No_filt_ratio <- melt(No_filt_ratio)
-    No_filt_ratio_cell <- No_filt_ratio %>% dplyr::group_by(variable) %>% dplyr::summarise(value_new = median(value,na.rm = T))
-    No_filt_ratio_cell <- No_filt_ratio_cell %>% left_join(cellenONE_meta,by = c('variable'='ID'))
-
-
-    Filt_ratio <- nPOP_obj@peptide #%>% dplyr::select(good_cells$variable)
-    Filt_ratio <- melt(Filt_ratio)
-    Filt_ratio_cell <- Filt_ratio %>% group_by(variable) %>% dplyr::summarise(value_new = median(value,na.rm = T))
-    Filt_ratio_cell <- Filt_ratio_cell %>% left_join(cellenONE_meta,by = c('variable'='ID'))
+    cellenOne_meta <- nPOP_obj@meta.data
+    Filt_ratio <- nPOP_obj@matricies@peptide #%>% dplyr::select(good_cells$variable)
+    Filt_ratio <- reshape2::melt(Filt_ratio)
+    Filt_ratio_cell <- Filt_ratio %>% group_by(Var2) %>% dplyr::summarise(value_new = median(value,na.rm = T))
+    Filt_ratio_cell <- Filt_ratio_cell %>% left_join(cellenOne_meta,by = c('Var2'='ID'))
 
 
     Filt_rat_plot <- ggplot(Filt_ratio_cell, aes(y = 1/(value_new), x =  sample)) + geom_boxplot() +
-      ylab('# single cells in carrier') + ggtitle(paste0(ChQval,' CH qval Filt: Carrier is median ', round(median(1/Filt_ratio$value,na.rm = T),2),' single cells'))
-    NoFilt_rat_plot <- ggplot(No_filt_ratio_cell, aes(y = 1/(value_new), x =  sample)) + geom_boxplot() + ylab('# single cells in carrier') + ggtitle(paste0('NO CH qval filt: Carrier is median ', round(median(1/No_filt_ratio$value,na.rm = T),2),' single cells'))
+      ylab('# single cells in carrier') + ggtitle( paste0('Carrier is median ', round(median(1/Filt_ratio$value,na.rm = T),2),' single cells'))
 
-
-    do_plot <- NoFilt_rat_plot+ Filt_rat_plot
+    do_plot <- Filt_rat_plot
 
 
   }
@@ -515,20 +575,23 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
 PlotCellSizeVsIntensity <- function(nPOP_obj, type = 'sample'){
   meta <- nPOP_obj@meta.data
 
-  good_cells <- colnames(nPOP_obj@peptide)
+  good_cells <- colnames(nPOP_obj@matricies@peptide)
   meta <- meta %>% dplyr::filter(ID %in% good_cells)
 
+  title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'),2))
+
   if(type == 'sample'){
-    plot_ <-    ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = sample)) +
-                     geom_point() + ggtitle(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'))
+    plot_ <-  ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = sample)) + geom_point() +
+      ggtitle(title_text)
 
     return(plot_)
   }
 
   if(type == 'Run order'){
     plot_ <-    ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = Order)) +
-      geom_point() + ggtitle(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'))+
-      scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')
+      geom_point() + ggtitle(title_text)+
+      scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
+      dot_plot
 
     return(plot_)
   }
@@ -554,16 +617,31 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
 
     #nPOP_obj <- Trachea_3_7_prot
     #prot = "P33267"
-    raw_pep_intense <- nPOP_obj@raw_data
-    raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Reporter.intensity.1,na.rm=T))
-    raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
+
+    if(nPOP_obj@ms_type =='DDA'){
+      raw_pep_intense <- nPOP_obj@raw_data
+      raw_pep_intense <- raw_pep_intense %>% filter(Leading.razor.protein == prot)
+      raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Reporter.intensity.1,na.rm=T))
+      raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
+
+    }
+    if(nPOP_obj@ms_type =='DIA' | nPOP_obj@ms_type =='DIA_C'){
+      raw_pep_intense <- nPOP_obj@raw_data
+      raw_pep_intense <- raw_pep_intense %>% filter(Protein.Group == prot)
+      raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Ms1.Area,na.rm=T))
+      raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
+
+    }
+
+
+
 
 
     # Get 4 best peptides
 
 
     clusters <- nPOP_obj@reductions[['UMAP']]
-    prot_map <- nPOP_obj@peptide_protein_map %>% filter(Protein == prot)
+    prot_map <- nPOP_obj@matricies@peptide_protein_map %>% filter(Protein == prot)
 
     raw_pep_intense_prot <- raw_pep_intense %>% filter(seqcharge %in% prot_map$seqcharge)
     if(nrow(raw_pep_intense_prot)>4){
@@ -574,8 +652,8 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     }
 
     prot_map <- prot_map %>% filter(seqcharge %in% raw_pep_intense_prot$seqcharge)
-    pep_mat <- (Normalize_reference_vector(nPOP_obj@peptide,log = T))
-    rownames(pep_mat) <- nPOP_obj@peptide_protein_map$seqcharge
+    pep_mat <- (Normalize_reference_vector(nPOP_obj@matricies@peptide,log = T))
+    rownames(pep_mat) <- nPOP_obj@matricies@peptide_protein_map$seqcharge
 
     pep_mat <- pep_mat[prot_map$seqcharge,]
 

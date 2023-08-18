@@ -18,15 +18,15 @@ link_cellenONE_Raw <- function(nPOP_obj,allDays){
   if(nPOP_obj@ms_type == 'DDA'){
     cellenOne_data <- analyzeCellenONE_TMT(allDays)
   }
-  if(nPOP_obj@ms_type == 'DIA'){
-    cellenOne_data <- analyzeCellenONE_TMT(allDays,nPOP_obj@plex)
+  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type =='DIA_C'){
+    cellenOne_data <- analyzeCellenONE_mTRAQ(allDays,nPOP_obj@misc[['plex']])
   }
 
 
 
-  peptide_data <- nPOP_obj@peptide
+  peptide_data <- nPOP_obj@matricies@peptide
   # Get list of unique cell IDs
-  cellID <- colnames(peptide_data)#[1:ncol(peptide_data)]
+  cellID <- colnames(peptide_data)
   cellID <- as.data.frame(cellID)
   colnames(cellID) <- 'ID'
 
@@ -246,7 +246,7 @@ analyzeCellenONE_TMT <- function(allDays){
 #' add_numbers(2, 3)
 #' @export
 analyzeCellenONE_mTRAQ <- function(allDays,plex){
-  #plex = 3
+  #plex = 2
   #allDays = all_cells
 
 

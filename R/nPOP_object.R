@@ -7,10 +7,7 @@ nPOP <- setClass(
     plex = 'numeric',
     raw_data = 'data.frame',
 
-    peptide = 'matrix',
-    protein = 'matrix',
-    protein.imputed = 'matrix',
-    peptide_protein_map = 'data.frame',
+    matricies = 'ANY',
 
     cellenONE.meta = 'data.frame',
     meta.data = 'data.frame',
@@ -18,7 +15,38 @@ nPOP <- setClass(
     pep.cor = 'list',
     neg_ctrl.info = 'data.frame',
     reductions = 'list',
-    project.name = 'character'
+    misc = 'list'
+
+
+  )
+)
+
+matricies_DDA <- setClass(
+  Class = 'matricies_DDA',
+  slots = c(
+
+    peptide = 'matrix',
+    protein = 'matrix',
+    protein.imputed = 'matrix',
+    peptide_protein_map = 'data.frame'
+
+
+  )
+)
+
+matricies_DIA <- setClass(
+  Class = 'matricies_DIA',
+  slots = c(
+
+    peptide = 'matrix',
+    peptide_mask = 'matrix',
+    #peptide_filt.MS2 = 'matrix',
+    protein = 'matrix',
+    protein_mask = 'matrix',
+    #protein_filt.MS2 = 'matrix',
+    protein.imputed = 'matrix',
+    peptide_protein_map = 'data.frame'
+
 
   )
 )
@@ -130,10 +158,13 @@ MQ_to_nPOP <- function(data_path,linker,PIF_in,PEP_in){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-DIANN_to_nPOP <- function(path,linker,plex,carreir = F){
+DIANN_to_nPOP <- function(path,linker_path,plex,carrier = F){
 
-  columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','Precursor.Id','Stripped.Sequence',
-                      'Precursor.Charge','Ms1.Area','Protein.Group','Channel.Q.Value')
+  linker <- read.csv(linker_path)
+  linker$Order <- 1:nrow(linker)
+
+  columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence',
+                      'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Channel.Q.Value')
 
   Raw_data <- data.table::fread(path,select = columns_to_read)
 
@@ -152,7 +183,7 @@ DIANN_to_nPOP <- function(path,linker,plex,carreir = F){
   Raw_data$plex <- substr(Raw_data$Precursor.Id[1:nrow(Raw_data)], 10, 10)
 
   # Unique cell ID
-  Raw_data$ID <- paste0(Raw_data$Well,Raw_data$Plate,'.',Raw_data$plex)
+  Raw_data$ID <- paste0(Raw_data$Well,Raw_data$plate,'.',Raw_data$plex)
   Raw_data$File.Name <- Raw_data$ID
 
   #Remove redundant data points
@@ -161,10 +192,10 @@ DIANN_to_nPOP <- function(path,linker,plex,carreir = F){
   Raw_data$uq <- NULL
 
   if(carrier == F){
-    nPOP_obj <- new('nPOP',raw_data = Raw_data,type = 'DIA')
+    nPOP_obj <- new('nPOP',raw_data = Raw_data,ms_type = 'DIA', misc = list(plex = plex))
   }
   if(carrier == T){
-    nPOP_obj <- new('nPOP',raw_data = Raw_data,type = 'DIA_C')
+    nPOP_obj <- new('nPOP',raw_data = Raw_data, meta.data = linker, ms_type = 'DIA_C', misc = list(plex = plex))
   }
 
 

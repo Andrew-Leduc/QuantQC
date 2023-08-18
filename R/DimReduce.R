@@ -9,7 +9,7 @@
 #' add_numbers(2, 3)
 #' @export
 ComputePCA <- function(nPOP_obj){
-  sc.batch_cor <- nPOP_obj@protein.imputed
+  sc.batch_cor <- nPOP_obj@matricies@protein.imputed
   cellenONE_meta <- nPOP_obj@meta.data
 
   # Correlation matrix for PCA
@@ -64,7 +64,7 @@ PlotPCA <- function(nPOP_obj, by = 'Condition'){
 
 
 ComputeUMAP <- function(nPOP_obj){
-  protein_Data <- nPOP_obj@protein.imputed
+  protein_Data <- nPOP_obj@matricies@protein.imputed
   scx <- nPOP_obj@reductions[['PCA']]
 
   prot_umap <- CreateSeuratObject(counts = protein_Data, project = "prot_mat")
@@ -133,10 +133,10 @@ FeatureUMAP <- function(nPOP_obj, prot = NA, imputed = T){
   UMAP_plot <- nPOP_obj@reductions[['UMAP']]
 
   if(imputed == T){
-    prot_mat <- nPOP_obj@protein.imputed
+    prot_mat <- nPOP_obj@matricies@protein.imputed
   }
   if(imputed == F){
-    prot_mat <- nPOP_obj@protein
+    prot_mat <- nPOP_obj@matricies@protein
   }
 
   UMAP_plot$protein <- prot_mat[prot,]

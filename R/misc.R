@@ -15,6 +15,22 @@ dot_plot <-  theme_bw()+theme(plot.title = element_text(hjust = .5,size = 24),
 
 # Other small less complex functions
 
+
+inSet_norm <- function(Raw_data, cellenOne_meta){
+  count = 0
+
+  for(i in unique(paste0(cellenONE_meta$injectWell))){
+
+    set <- Raw_data[,which(grepl(i,colnames(Raw_data)))]
+
+    Raw_data[,which(grepl(i,colnames(Raw_data)))] <- set - rowMeans(set,na.rm = T)
+
+  }
+
+  return(Raw_data)
+}
+
+
 f <- function(y) {c(label=length(y), y=median(y))}
 
 

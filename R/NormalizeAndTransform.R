@@ -50,6 +50,12 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 
 }
 
+
+
+#####
+# mTRAQ Processing
+#####
+
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -60,24 +66,70 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-inSet_norm <- function(Raw_data, cellenOne_meta){
-  count = 0
+cellXpeptide <- function(nPOP_obj, chQVal){
 
-  for(i in unique(paste0(cellenONE_meta$injectWell))){
+  Raw_data <- nPOP_obj@raw_data
+  plex <- nPOP_obj@misc[['plex']]
+  type <- nPOP_obj@ms_type
 
-    set <- Raw_data[,which(grepl(i,colnames(Raw_data)))]
 
-    Raw_data[,which(grepl(i,colnames(Raw_data)))] <- set - rowMeans(set,na.rm = T)
+
+  if(plex == 2 & type == 'DIA_C'){
+    plex_used <- c(0,4,8)
+
+  }else if(plex == 2 & type == 'DIA'){
+    plex_used <- c(0,4)
+  }else if(plex == 3){
+    plex_used <- c(0,4,8)
+  }else{
+    return('plex not valid')
+  }
+
+
+  Raw_data <- Raw_data %>% filter(plex %in% plex_used)
+  Raw_data_filt <- Raw_data %>% filter(Channel.Q.Value < chQVal)
+
+  Raw_data_lim_filt <- Raw_data_filt %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
+  Raw_data_lim.d_filt <- reshape2::dcast(Raw_data_lim_filt,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
+
+  Raw_data_lim_NF <- Raw_data %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
+  Raw_data_lim.d_NF <- reshape2::dcast(Raw_data_lim_NF,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
+
+  Raw_data_lim.d_NF <- Raw_data_lim.d_NF %>% filter(seqcharge %in% Raw_data_lim.d_filt$seqcharge)
+
+
+
+  # Normalize data by carrier
+  ## This code also removes all sets where a single cell is larger in mean intensity than the carrier
+  if(type == 'DIA_C'){
+
+    Raw_data_lim.d_filt <- DIA_carrier_norm(Raw_data_lim.d_filt,8,plex_used)
+
+    Raw_data_lim.d_NF <- Raw_data_lim.d_NF %>% dplyr::select(colnames(Raw_data_lim.d_filt))
+
 
   }
 
-  return(Raw_data)
+
+
+  peptide_protein_map <- Raw_data_lim.d_filt %>% dplyr::select(seqcharge,Protein.Group)
+
+  colnames(peptide_protein_map) <- c('seqcharge','Protein')
+
+  Raw_data_lim.d_filt <- as.matrix(Raw_data_lim.d_filt[,3:ncol(Raw_data_lim.d_filt)])
+  Raw_data_lim.d_NF <- as.matrix(Raw_data_lim.d_NF[,3:ncol(Raw_data_lim.d_NF)])
+  pep_mask <- is.na(Raw_data_lim.d_NF)
+
+
+  data_matricies <- new('matricies_DIA',peptide = Raw_data_lim.d_filt,peptide_mask = pep_mask,peptide_protein_map = peptide_protein_map)
+
+
+  nPOP_obj@matricies <- data_matricies
+  nPOP_obj@misc[['ChQ']] <- chQVal
+  return(nPOP_obj)
+
 }
 
-
-#####
-# mTRAQ Processing
-#####
 
 
 #' Add two numbers.
@@ -155,7 +207,7 @@ remove_sets_carrier_lessthan_SCs <- function(df,files){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
+DIA_carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
 
   Carrier_list <- colnames(Raw_data_lim.d)[str_sub(colnames(Raw_data_lim.d), start= -1) == carrier_CH]
 
@@ -205,35 +257,6 @@ carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
   return(Raw_data_lim.d)
 }
 
-#' Add two numbers.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
-cellXgene <- function(Raw_data, carrier, plex_used ,quant){
-
-  Raw_data <- Raw_data %>% filter(plex %in% plex_used)
-
-  Raw_data_lim <- Raw_data %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
-  Raw_data_lim.d <- dcast(Raw_data_lim,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
-
-  # Normalize data by carrier
-  ## This code also removes all sets where a single cell is larger in mean intensity than the carrier
-  if(carrier == T){
-
-    Raw_data_lim.d <- carrier_norm(Raw_data_lim.d,carrier_CH,plex_used)
-
-  }
-
-  return(Raw_data_lim.d)
-
-}
-
 
 #####
 #General Proc
@@ -252,7 +275,7 @@ cellXgene <- function(Raw_data, carrier, plex_used ,quant){
 KNN_impute<-function(nPOP_obj, k = 3){
 
 
-  sc.data <- nPOP_obj@protein
+  sc.data <- nPOP_obj@matricies@protein
 
 
 
@@ -325,7 +348,7 @@ KNN_impute<-function(nPOP_obj, k = 3){
 
 
 
-  nPOP_obj@protein.imputed <- sc.data.imp
+  nPOP_obj@matricies@protein.imputed <- sc.data.imp
 
 
 
@@ -397,14 +420,13 @@ Normalize_reference_vector_log <- function(dat){
 #' add_numbers(2, 3)
 #' @export
 CollapseToProtein <- function(nPOP_obj, opt){
-  sc.data <- nPOP_obj@peptide
 
+  sc.data <- nPOP_obj@matricies@peptide
   # This function colapses peptide level data to the protein level
   # There are different ways to collapse peptides mapping from the same
   # protein to a single data point. The simplest way is to take the median
   # of the peptide values after normalizing. There are also more sophisticated
   # ways that rely on the raw peptide intensities like MaxLFQ
-
 
   if(opt == 1){
 
@@ -420,7 +442,7 @@ CollapseToProtein <- function(nPOP_obj, opt){
     Normalize_peptide_data[Normalize_peptide_data == -Inf] <- NA
 
     #Re-Join data
-    Normalize_peptide_data <- as.data.table(cbind(nPOP_obj@peptide_protein_map,Normalize_peptide_data))
+    Normalize_peptide_data <- as.data.table(cbind(nPOP_obj@matricies@peptide_protein_map,Normalize_peptide_data))
 
     # Remove peptides observed less than 10 times
     Normalize_peptide_data <- Normalize_peptide_data[rowSums(is.na(Normalize_peptide_data)==F) > 9,]
@@ -442,7 +464,24 @@ CollapseToProtein <- function(nPOP_obj, opt){
     # Re-column and row normalize:
     Normalize_protein_data<-Normalize_reference_vector_log(Normalize_protein_data)
 
-    nPOP_obj@protein <- Normalize_protein_data
+    nPOP_obj@matricies@protein <- Normalize_protein_data
+
+
+    if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+
+      prot_NF <- nPOP_obj@matricies@peptide_mask
+      prot_NF <- cbind(prot_NF,nPOP_obj@matricies@peptide_protein_map)
+      prot_NF$seqcharge <- NULL
+      prot_NF <- reshape2::melt(prot_NF,id.var = 'Protein')
+      prot_NF <- prot_NF %>% dplyr::group_by(Protein,variable) %>% dplyr::summarise(numb = sum(value)>0)
+
+      prot_NF <- reshape2::dcast(prot_NF,Protein~variable,value.var = 'numb')
+      prot_NF$Protein <- NULL
+      prot_NF <- as.matrix(prot_NF)
+      nPOP_obj@matricies@protein_mask <- prot_NF
+
+    }
+
     return(nPOP_obj)
 
   }
@@ -451,8 +490,14 @@ CollapseToProtein <- function(nPOP_obj, opt){
 
 
   if(opt == 2){
-
+    library(diann)
     #Max LFQ protein level
+
+    sc.data <- nPOP_obj@raw_data
+
+    #sc.data <-
+
+
     protein_mat <- diann_maxlfq(sc.data,sample.header = "File.Name",group.header = "Protein.Group",id.header = "seqcharge",quantity.header = "Ms1.Area")
 
     #Normalize protein level data and log transform
@@ -480,8 +525,8 @@ CollapseToProtein <- function(nPOP_obj, opt){
 BatchCorrect <- function(nPOP_obj){
 
   cellenONE_meta <- nPOP_obj@meta.data
-  protein_mat_imputed <- nPOP_obj@protein.imputed
-  protein_mat <- nPOP_obj@protein
+  protein_mat_imputed <- nPOP_obj@matricies@protein.imputed
+  protein_mat <- nPOP_obj@matricies@protein
 
   # Get meta data for batch correction
   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(protein_mat_imputed))
@@ -500,8 +545,8 @@ BatchCorrect <- function(nPOP_obj){
   sc.batch_cor_noimp <- sc.batch_cor
   sc.batch_cor_noimp[is.na(protein_mat)==T] <- NA
 
-  nPOP_obj@protein.imputed <- sc.batch_cor
-  nPOP_obj@protein <- sc.batch_cor_noimp
+  nPOP_obj@matricies@protein.imputed <- sc.batch_cor
+  nPOP_obj@matricies@protein <- sc.batch_cor_noimp
 
 
   return(nPOP_obj)
