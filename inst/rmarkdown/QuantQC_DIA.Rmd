@@ -8,24 +8,10 @@ params:
   linker_path: "data/file2.csv"
   isolation: "data/file3.csv"
   prot_vis_umap: NULL
-
+  ChQ: .1
   
 ---
 
-```{r setup, include=FALSE}
-
-
-# Set parameters
-
-PIF <- .75
-PEP <- .04
-
-CV_thresh <- .43
-
-#species <- c('Mouse') #Mouse, Human
-
-
-```
 
 # Results {.tabset}
 
@@ -33,13 +19,13 @@ CV_thresh <- .43
 
 
 #Read and format raw data, link MS runs to injection wells
-nPOP_obj_Exp <- MQ_to_nPOP(params$data_path,params$linker_path,PIF,PEP)
+nPOP_obj_Exp <- DIANN_to_nPOP(params$data_path,params$linker_path, plex = 2, carrier = T)
 
 
 # Normalize single cell runs to reference channel, 
 # filter out data points over twice reference
 # Turn long table format to Peptide X Cell matrix
-nPOP_obj_Exp <- TMT_Reference_channel_norm(nPOP_obj_Exp)
+nPOP_obj_Exp <- cellXpeptide(nPOP_obj_Exp, params$ChQ)
 
 
 
@@ -83,21 +69,19 @@ PlotRTDrift(nPOP_obj_Exp)
 ### Negative control vs real cell statistics
 ```{r negative_ctrl ,echo=FALSE, fig.width = 11, fig.height = 4.5,warning=FALSE,message=FALSE}
 
-nPOP_obj_Exp <- EvaluateNegativeControls(nPOP_obj_Exp,.43)
+nPOP_obj_Exp <- EvaluateNegativeControls(nPOP_obj_Exp)
 
 
-PlotNegCtrl(nPOP_obj_Exp,.43)
+PlotNegCtrl(nPOP_obj_Exp)
 
 
-nPOP_obj_Exp <- FilterBadCells(nPOP_obj_Exp,.43)
+nPOP_obj_Exp <- FilterBadCells(nPOP_obj_Exp, min_pep = 700)
 
 ```
 
 ### Carrier Statistics
 
 ```{r carrier, echo=FALSE, fig.height=4.5, fig.width=11, warning=FALSE,message=FALSE}
-
-
 
 #Compute the size relative to the carrier of each cell
 PlotSCtoCarrierRatio(nPOP_obj_Exp)
@@ -139,9 +123,19 @@ PlotPepCor(nPOP_obj_Exp)
 
 ```
 
+
+### Cell size information
+
+```{r cell size info, echo=FALSE,fig.width = 7, fig.height = 4.5}
+
+#Compute correlations between peptides mapping to same protein
+
+PlotCellSizeVsIntensity(nPOP_obj_Exp, type = 'Run order')
+
+```
+
 ### PCA and batch effects checks
 ```{r PCA, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
-
 
 # Impute, still old imputation very slow, soon will update with C++ implementation
 nPOP_obj_Exp <- KNN_impute(nPOP_obj_Exp)
@@ -165,6 +159,8 @@ PlotPCA(nPOP_obj_Exp, by = "Run order")
 
 
 
+
+
 ```
 
 
@@ -172,7 +168,8 @@ PlotPCA(nPOP_obj_Exp, by = "Run order")
 ### Additional dimensionality reduction and clustering
 
 
-```{r UMAP, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
+```{r UMAP ,echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
+
 
 nPOP_obj_Exp <- ComputeUMAP(nPOP_obj_Exp)
 
@@ -201,7 +198,16 @@ fig1
 ```{r r Advanced Pep to prot Correlations, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE, include=TRUE}
 
 
+
+
 ```
+
+
+
+
+
+
+
 
 
 

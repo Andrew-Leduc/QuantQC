@@ -42,9 +42,10 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 
   prot_pep_map <- as.data.frame(cbind(sc.data$Leading.razor.protein,sc.data$seqcharge))
   colnames(prot_pep_map) <- c('Protein','seqcharge')
-  nPOP_obj@peptide_protein_map <- prot_pep_map
 
-  nPOP_obj@peptide <- as.matrix(sc.data[,3:ncol(sc.data)])
+  data_matricies <- new('matricies_DDA',peptide = as.matrix(sc.data[,3:ncol(sc.data)]),peptide_protein_map = prot_pep_map)
+
+  nPOP_obj@matricies <- data_matricies
 
   return(nPOP_obj)
 
@@ -91,6 +92,7 @@ cellXpeptide <- function(nPOP_obj, chQVal){
 
   Raw_data_lim_filt <- Raw_data_filt %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
   Raw_data_lim.d_filt <- reshape2::dcast(Raw_data_lim_filt,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
+  Raw_data_lim.d_filt[Raw_data_lim.d_filt==0] <- NA
 
   Raw_data_lim_NF <- Raw_data %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
   Raw_data_lim.d_NF <- reshape2::dcast(Raw_data_lim_NF,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
@@ -118,6 +120,7 @@ cellXpeptide <- function(nPOP_obj, chQVal){
 
   Raw_data_lim.d_filt <- as.matrix(Raw_data_lim.d_filt[,3:ncol(Raw_data_lim.d_filt)])
   Raw_data_lim.d_NF <- as.matrix(Raw_data_lim.d_NF[,3:ncol(Raw_data_lim.d_NF)])
+  Raw_data_lim.d_NF[Raw_data_lim.d_NF==0] <- NA
   pep_mask <- is.na(Raw_data_lim.d_NF)
 
 

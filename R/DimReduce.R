@@ -41,20 +41,20 @@ PlotPCA <- function(nPOP_obj, by = 'Condition'){
 
   if(by == 'Condition'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = sample)) + geom_point()+
-      dot_plot
+      dot_plot + ggtitle('PCA by Condition')
   }
   if(by == 'Total protein'){
-    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = prot_total)) + geom_point()+
+    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = prot_total)) + geom_point()+ ggtitle('PCA by Total Cell Intensity')+
       dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
   }
 
   if(by == 'Label'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = label)) + geom_point()+
-      dot_plot
+      dot_plot + ggtitle('PCA by Label')
   }
 
   if(by == 'Run order'){
-    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = Order)) + geom_point()+
+    pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = Order)) + geom_point() + ggtitle('PCA by Run Order')+
       dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$Order,na.rm = T), low = 'red',mid = 'white', high = 'blue')
   }
 

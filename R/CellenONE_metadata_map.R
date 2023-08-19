@@ -11,9 +11,7 @@
 #' @export
 link_cellenONE_Raw <- function(nPOP_obj,allDays){
   linker <- nPOP_obj@meta.data
-#  for(i in 1:length(allDays)){
-#
-#  }
+
 
   if(nPOP_obj@ms_type == 'DDA'){
     cellenOne_data <- analyzeCellenONE_TMT(allDays)
@@ -71,7 +69,19 @@ analyzeCellenONE_TMT <- function(allDays){
 
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
+  for(i in 1:length(allDays)){
+    df1 <- read.delim(allDays[[i]])
+    df1$condition <- names(allDays[i])
 
+    if(i == 1){
+      df <- df1
+    }else{
+      df <- rbind(df,df1)
+    }
+
+  }
+
+  allDays <- df
 
   #file_paths
   labelPath <- system.file("extdata", "14plex_files/Labels.fld", package = "QuantQC")
@@ -249,6 +259,19 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
   #plex = 2
   #allDays = all_cells
 
+  for(i in 1:length(allDays)){
+    df1 <- read.delim(allDays[[i]])
+    df1$condition <- names(allDays[i])
+
+    if(i == 1){
+      df <- df1
+    }else{
+      df <- rbind(df,df1)
+    }
+
+  }
+
+  allDays <- df
 
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read

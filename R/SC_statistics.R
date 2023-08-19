@@ -19,7 +19,7 @@ CVs <- function(nPOP_obj,thresh){
 
   mat_norm <- as.data.frame(mat_norm)
   mat_norm$Protein <- nPOP_obj@matricies@peptide_protein_map$Protein
-  mat_norm$pep <- nPOP_obj@peptide_protein_map$seqcharge
+  mat_norm$pep <- nPOP_obj@matricies@peptide_protein_map$seqcharge
 
   # convert to data.table for fast computation
   mat_norm <- as.data.table(mat_norm)
@@ -443,7 +443,7 @@ PlotDataComplete <- function(nPOP_obj){
 
   if(nPOP_obj@ms_type == 'DDA'){
     mp <- ggplot(missingness_prot_mat, aes(x = value)) +
-      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(protein_mat) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
 
     mc <- ggplot(missingness_cell_mat, aes(x = value)) +
       geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
@@ -476,7 +476,7 @@ PlotDataComplete <- function(nPOP_obj){
 
     missingness_prot_mat <- rbind(missingness_prot_mat,missingness_prot_mat_NF)
 
-    mp <- ggplot(missingness_prot_mat, aes(x = Miss_proteins, fill = Filter)) +
+    mp <- ggplot(missingness_cell_mat, aes(x = Cell_miss, fill = Filter)) +
       geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
       xlab('fraction values present')+dot_plot
     mc <-  ggplot(missingness_prot_mat, aes(x = Miss_proteins,fill = Filter)) +
@@ -514,7 +514,7 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
   if(nPOP_obj@ms_type == "DDA"){
 
     sc.data <- nPOP_obj@raw_data
-    good_cells <- colnames(nPOP_obj@peptide)
+    good_cells <- colnames(nPOP_obj@matricies@peptide)
 
     cellenOne_meta <- nPOP_obj@meta.data
     good_cells_p_negs <- c(good_cells,cellenOne_meta$ID[cellenOne_meta$sample == 'neg'])

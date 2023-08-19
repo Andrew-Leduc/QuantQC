@@ -145,7 +145,7 @@ PlotIntensityDrift <- function(nPOP_obj){
 
 
   MS2 <- ggplot(nPOP_obj@run_order.statistics[[3]], aes(x = Run,y = MS2_means)) + geom_point()+dot_plot+
-    ggtitle('Carrier RI Intensity as runs progress')+ylab('Log2( Normalized to run 1)')
+    ggtitle('MS2 Intensity as runs progress')+ylab('Log2(Normalized to run 1)')
 
 
   IDs/MS1/MS2
