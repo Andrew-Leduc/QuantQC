@@ -57,7 +57,7 @@ Gen_QQC_report_DDA <- function(data_path, linker_path, isolation, prot_vis_umap 
   # Generate the report using knitr
   rmarkdown::render(input = system.file("rmarkdown/QuantQC_DDA.Rmd", package = "QuantQC"),
                     output_format = "html_document",
-                    output_file = "output_report.html",
+                    output_file = output_path,
                     params = param_vals)
 
 }

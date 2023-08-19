@@ -215,10 +215,10 @@ PlotPepCor <- function(nPOP_obj){
   pep_cor <- nPOP_obj@pep.cor[[1]]
   null_dist <- nPOP_obj@pep.cor[[2]]
 
-  ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot() + xlab('Mean abs(protein fold change)') +
+  ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot(color="black", fill = 'gray') + xlab('Mean abs(protein fold change)') +
     ylab('Correlation between peptides mapping to a protein')+
     stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")+
-    geom_hline(yintercept = null_dist, col = "red")
+    geom_hline(yintercept = null_dist, col = "red")+theme_linedraw()
 
 
 
@@ -800,4 +800,63 @@ ImputationComparison <- function(nPOP_obj, cluster = 1){
 }
 
 
+
+PlotMS1vMS2 <- function(nPOP_obj){
+
+  peps <- nPOP_obj@matricies@peptide
+  raw_data <- nPOP_obj@raw_data
+  raw_data <- raw_data %>% filter(Channel.Q.Value < nPOP_obj@misc[['ChQ']])
+
+  rownames(peps) <- nPOP_obj@matricies@peptide_protein_map$seqcharge
+
+  raw_data <- raw_data %>% filter(ID %in% colnames(peps))
+
+  MS2_mat <- reshape2::dcast(raw_data, seqcharge ~ ID, value.var = 'Precursor.Quantity')
+
+  rownames(MS2_mat)<- MS2_mat$seqcharge
+  MS2_mat$seqcharge <- NULL
+  MS2_mat <- as.matrix(MS2_mat)
+
+  sect_pep <- intersect(rownames(MS2_mat),  rownames(peps) )
+  sect_col <- intersect(colnames(MS2_mat),  colnames(peps) )
+
+  MS2_mat <- MS2_mat[sect_pep,sect_col]
+  peps <- peps[sect_pep,sect_col]
+
+  MS2_mat <- Normalize_reference_vector(MS2_mat, log = T)
+  peps <- Normalize_reference_vector(peps, log = T)
+
+  cors <- c()
+  pep <- c()
+  for(i in 1:nrow(MS2_mat)){
+    same <- psych::pairwiseCount(MS2_mat[i,],peps[i,])
+    if(same > 10){
+      pep <- c(pep, rownames(peps)[i])
+      cors <- c(cors, cor(MS2_mat[i,],peps[i,], use = 'pairwise.complete.obs'))
+    }
+
+  }
+
+
+  df <- as.data.frame(cors)
+  df$FC <- rowMeans(abs(peps[pep,]),na.rm = T)
+  df$FC[df$FC < .4] <- .4
+  df$FC[df$FC > .4 & df$FC < .8] <- .8
+  df$FC[df$FC > .8 & df$FC < 1.2] <- 1.2
+  df$FC[df$FC > 1.2 & df$FC < 1.6] <- 1.6
+  df$FC[df$FC > 1.6] <- 2
+
+  df$FC <- as.character(df$FC)
+
+
+  ggplot(df, aes(x = FC, y = cors))+ geom_boxplot(color="black", fill = 'gray') +
+    ggtitle('Ms1, Ms2 Peptide Correlation') + ylab('Correlations') +
+    xlab('Average abs(log2 Fold Change)')+ theme_linedraw()+
+    stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")
+
+
+
+
+
+}
 

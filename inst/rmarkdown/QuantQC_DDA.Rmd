@@ -104,6 +104,15 @@ PlotSCtoCarrierRatio(nPOP_obj_Exp)
 
 ```
 
+### Ms1 vs Ms2 Peptide correlations
+
+```{r carrier, echo=FALSE, fig.height=4.5, fig.width=11, warning=FALSE,message=FALSE}
+
+
+PlotMS1vMS2(Trachea_3_7_prot)
+
+```
+
 
 ### Protein and peptide numbers per cell
 
