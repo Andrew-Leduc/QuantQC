@@ -2,6 +2,31 @@
 # TMT Processing
 #####
 
+
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
+cellXpeptide <- function(nPOP_obj, chQVal = 1){
+
+  if(nPOP_obj@ms_type == 'DIA' |nPOP_obj@ms_type == 'DIA_C' ){
+    nPOP_obj <- cellXpeptide_DIA(nPOP_obj, chQVal)
+  }
+
+  if(nPOP_obj@ms_type == 'DDA'){
+    nPOP_obj <- TMT_Reference_channel_norm(nPOP_obj)
+  }
+
+  return(nPOP_obj)
+}
+
+
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -67,7 +92,7 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-cellXpeptide <- function(nPOP_obj, chQVal){
+cellXpeptide_DIA <- function(nPOP_obj, chQVal = 1){
 
   Raw_data <- nPOP_obj@raw_data
   plex <- nPOP_obj@misc[['plex']]
@@ -555,6 +580,12 @@ BatchCorrect <- function(nPOP_obj){
   return(nPOP_obj)
 
 }
+
+
+
+
+
+
 
 # BatchCorrectPeptide <- function(nPOP_obj){
 #

@@ -63,24 +63,7 @@ CVs <- function(nPOP_obj,thresh){
   CV_mat_pos <- CV_mat %>% filter(value == 'cell')
   CV_mat_neg <- CV_mat %>% filter(value == 'neg')
 
-  # Plot distribution
-  CV_plot <- ggplot(data=CV_mat, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + theme_pubr() +
-    scale_fill_manual(values=my_col3) +
-    xlab("CV of peptides mapping to a protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
-    font("xylab", size=17) +
-    font("x.text", size=15) +
-    font('title',size=12)+
-    coord_cartesian(xlim=c(.1,.65))+
-    annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
-    annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > thresh)," cells"), size=10, color=my_col3[c(1)])+
-    annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
-    ggtitle('Cells need atleast 3 proteins with multiple peptides')+
-    rremove("legend") + geom_vline(xintercept=thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
-
-
-
-  return(list(CV_plot,CV_mat))
+  return(CV_mat)
 
 }
 
@@ -372,7 +355,6 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 #' add_numbers(2, 3)
 #' @export
 PlotProtAndPep <- function(nPOP_obj){
-  nPOP_obj <- Trachea_3_7_prot
   # count peptide numbers
   numb_pep <- colSums(is.na(nPOP_obj@matricies@peptide)==F)
   numb_pep <- as.data.frame(numb_pep)
@@ -432,7 +414,7 @@ PlotProtAndPep <- function(nPOP_obj){
 #' add_numbers(2, 3)
 #' @export
 PlotDataComplete <- function(nPOP_obj){
-  nPOP_obj <- Trachea_3_7_prot
+
   data <- nPOP_obj@matricies@protein
 
   missingness_cell_filt <- colSums(is.na(data) == F)/nrow(data)
@@ -615,8 +597,7 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
 
   if(is.null(nPOP_obj@reductions[['UMAP']])==F){
 
-    #nPOP_obj <- Trachea_3_7_prot
-    #prot = "P33267"
+
 
     if(nPOP_obj@ms_type =='DDA'){
       raw_pep_intense <- nPOP_obj@raw_data

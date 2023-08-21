@@ -34,13 +34,12 @@ EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
 EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
 
 
-
   # Compute CVs of cells and negative controls, function outputs CV plot and list of cells with CVs
   CVm <- CVs(nPOP_obj,CV_thresh)
 
 
   # Get IDs of cells with median protein CVs (good_cells is a df with cell ID and CV)
-  good_cells <- CVm[[2]] %>% filter(cvq < CV_thresh)
+  good_cells <- CVm %>% filter(cvq < CV_thresh)
 
 
   if(length(good_cells) < 3){
@@ -58,14 +57,12 @@ EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
   Numb_data_points <- ggplot(Peptide_counts_by_sample, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
 
 
-  #neg_ctrl_data <- left_join(CVm[[2]],Peptide_counts_by_sample)
 
   # Filter for only good cells
   #cols_to_keep <- c('Protein.Group','seqcharge',as.character(good_cells$variable))
 
-  #Ref_norm_data_filtered <- Ref_norm_data[,colnames(Ref_norm_data) %in% cols_to_keep]
   Peptide_counts_by_sample$variable <- rownames(Peptide_counts_by_sample)
-  neg_meta <-  CVm[[2]] %>% left_join(Peptide_counts_by_sample, by = c('variable'))
+  neg_meta <-  CVm %>% left_join(Peptide_counts_by_sample, by = c('variable'))
 
   nPOP_obj@neg_ctrl.info <- neg_meta
 
@@ -107,23 +104,20 @@ PlotNegCtrl <- function(nPOP_obj,CV_thresh){
 
   if(nPOP_obj@ms_type == 'DDA'){
 
-    peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
+    peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('precursors per cell')) + ylab('# of samples')+dot_plot
 
     CV_mat_pos <- plot_data %>% filter(value == 'cell')
     CV_mat_neg <- plot_data %>% filter(value == 'neg')
 
-    cvs <- ggplot(data=plot_data, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + theme_pubr() +
+    cvs <- ggplot(data=plot_data, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + dot_plot+
       scale_fill_manual(values=my_col3) +
-      xlab("CV of peptides mapping to a protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
-      font("xylab", size=17) +
-      font("x.text", size=15) +
-      font('title',size=12)+
+      xlab("CV, peptides from same protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
       coord_cartesian(xlim=c(.1,.65))+
       annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
       annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > CV_thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
       annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
       annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < CV_thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
-      ggtitle('Cells need atleast 3 proteins with multiple peptides')+
+      ggtitle('Atleast 3 proteins with multiple peptides')+
       rremove("legend") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
 
 
