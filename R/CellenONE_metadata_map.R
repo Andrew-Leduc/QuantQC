@@ -1,4 +1,3 @@
-
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -9,20 +8,15 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-link_cellenONE_Raw <- function(nPOP_obj,allDays){
-  linker <- nPOP_obj@meta.data
+link_manual_Raw <- function(QQC){
+  linker <- QQC@meta.data
 
 
-  if(nPOP_obj@ms_type == 'DDA'){
-    cellenOne_data <- analyzeCellenONE_TMT(allDays)
-  }
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type =='DIA_C'){
-    cellenOne_data <- analyzeCellenONE_mTRAQ(allDays,nPOP_obj@misc[['plex']])
-  }
+  linker <- melt(linker, ids = c('Run','well','plate'))
 
 
 
-  peptide_data <- nPOP_obj@matricies@peptide
+  peptide_data <- QQC@matricies@peptide
   # Get list of unique cell IDs
   cellID <- colnames(peptide_data)
   cellID <- as.data.frame(cellID)
@@ -38,7 +32,7 @@ link_cellenONE_Raw <- function(nPOP_obj,allDays){
 
   cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
 
-  nPOP_obj@cellenONE.meta <- cellenOne_data
+  QQC@cellenONE.meta <- cellenOne_data
 
   cellID$WP <- paste0(cellID$plate,cellID$injectWell)
   cellID$plate <- NULL
@@ -47,9 +41,65 @@ link_cellenONE_Raw <- function(nPOP_obj,allDays){
   cellID <- cellID %>% left_join(linker, by = c('WP'))
   cellID$WP <- NULL
 
-  nPOP_obj@meta.data <- cellID
+  QQC@meta.data <- cellID
 
-  return(nPOP_obj)
+  return(QQC)
+
+}
+
+
+
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
+link_cellenONE_Raw <- function(QQC,allDays){
+  linker <- QQC@meta.data
+
+
+  if(QQC@ms_type == 'DDA'){
+    cellenOne_data <- analyzeCellenONE_TMT(allDays)
+  }
+  if(QQC@ms_type == 'DIA' | QQC@ms_type =='DIA_C'){
+    cellenOne_data <- analyzeCellenONE_mTRAQ(allDays,QQC@misc[['plex']])
+  }
+
+
+
+  peptide_data <- QQC@matricies@peptide
+  # Get list of unique cell IDs
+  cellID <- colnames(peptide_data)
+  cellID <- as.data.frame(cellID)
+  colnames(cellID) <- 'ID'
+
+  cellenOne_data_small <- cellenOne_data %>% dplyr::select(any_of(c('ID','diameter','sample','label','injectWell','plate')))
+  cellenOne_data_small <- as.data.frame(cellenOne_data_small)
+
+
+  cellID <- cellID %>% left_join(cellenOne_data_small,by = c('ID'))
+
+  cellID$sample[is.na(cellID$sample)==T] <- 'neg'
+
+  cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
+
+  QQC@cellenONE.meta <- cellenOne_data
+
+  cellID$WP <- paste0(cellID$plate,cellID$injectWell)
+  cellID$plate <- NULL
+  linker$WP <- paste0(linker$plate,linker$Well)
+
+  cellID <- cellID %>% left_join(linker, by = c('WP'))
+  cellID$WP <- NULL
+
+  QQC@meta.data <- cellID
+
+  return(QQC)
 
 }
 
@@ -514,9 +564,9 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
 #' add_numbers(2, 3)
 #' @export
 
-PlotSlideLayout_celltype <- function(nPOP_obj){
+PlotSlideLayout_celltype <- function(QQC){
 
-  ggplot(nPOP_obj@cellenONE.meta) +
+  ggplot(QQC@cellenONE.meta) +
     geom_point(aes(x = dropXPos,y = dropYPos,color = sample)) +
     geom_text(aes(x = pickupXPos_numb,y = pickupYPos_numb,label = injectWell,size = 5),hjust= .5, vjust=-.6) +
     facet_wrap(~field,ncol = 4)+
@@ -535,10 +585,10 @@ PlotSlideLayout_celltype <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotSlideLayout_label <- function(nPOP_obj){
+PlotSlideLayout_label <- function(QQC){
 
   # print the mTRAQ labels overlayed on the positions of the slide
-  ggplot(nPOP_obj@cellenONE.meta, aes(x = dropXPos,y = dropYPos,color = label)) +
+  ggplot(QQC@cellenONE.meta, aes(x = dropXPos,y = dropYPos,color = label)) +
     geom_point() +scale_y_reverse()+ facet_wrap(~field,ncol = 4)
 
 }

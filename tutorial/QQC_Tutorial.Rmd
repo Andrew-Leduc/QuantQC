@@ -23,7 +23,11 @@ h2 { /* Header 2 */
 
 For this tutorial we will be processing single cell proteomics data prepared by nPOP. We will showcase data prepared for Prioritized or data dependant data acquisition utilizing TMT labels and plexDIA utilizing mTRAQ labels with a carrier or without a carrier. For brevity, the former will be reffered to as DDA and the later DIA throught the document.
 
-Files needed are search results from MaxQuant or DIANN, a meta data file that links the MS raw files to the wells of the 384 well plate, and the _isolated files from the cellenONE that provide key metadata about the single cells.
+
+Files needed are search results from MaxQuant or DIANN, a [meta data file](https://github.com/Andrew-Leduc/QuantQC) that links the MS raw files to the wells of the 384 well plate, and the _isolated files from the cellenONE that provide key metadata about the single cells.
+
+**However we also support other sample preps that require a more comprehensive meta data file. Example can be found [here](https://github.com/Andrew-Leduc/QuantQC).**
+
 
 The QuantQC package can be installed from github: https://github.com/Andrew-Leduc/QuantQC
 
@@ -93,13 +97,25 @@ Gen_QQC_report_DDA(data_path = data_path,
                   output_path = output_path)
 
 
+  ## If you did not do an nPOP experiment, add in argument for more advanced meta data
+
+# Argument: SamplePrep = 'custom'
+
+Gen_QQC_report_DDA(data_path = data_path,
+                  linker_path = link_path,
+                  isolation = all_cells,
+                  prot_vis_umap = prot_vis_umap,
+                  output_path = output_path,
+                  SamplePrep = 'custom')
+
+
 ```
 
 
 
-# Creating nPOP object
+# Creating QQC object
 
-The first step of the workflow is to read in the raw data and generate our nPOP object. 
+The first step of the workflow is to read in the raw data and generate our QQC object. 
 
 
 **DDA and DIA params:**
@@ -126,12 +142,12 @@ The first step of the workflow is to read in the raw data and generate our nPOP 
 
   # DDA
 
-Trachea <- MQ_to_nPOP(data_path,link_path,PIF = .75, PEP = .07)
+Trachea <- MQ_to_QQC(data_path,link_path,PIF = .75, PEP = .07)
 
 
   # DIA
 
-# Trachea <- DIANN_to_nPOP(data_path,linker_path, plex = 2, carrier = T)
+# Trachea <- DIANN_to_QQC(data_path,linker_path, plex = 2, carrier = T)
 
 
 
@@ -184,15 +200,19 @@ The cellenONE records characteristics of cells sorted for nPOP experiments inclu
 
 **DDA and DIA params:**
 
-* nPOP object
+* QQC object
 
 * named list of cell isolation files
 
 ```{r}
 
 ## mapping cellenONE meta data to raw data
+
 Trachea <- link_cellenONE_Raw(Trachea,all_cells)
 
+## If you did not perform the nPOP sample preparation
+
+# Trachea <- link_manual_Raw(Trachea)
 
 ```
 
@@ -247,7 +267,7 @@ Negative controls are important to evaluate any errors in sample preperation. Th
 
 **DDA and DIA params:**
 
-* nPOP object
+* QQC object
 
 * min_pep: minimum number of peptides identified that you are willing to accept
 

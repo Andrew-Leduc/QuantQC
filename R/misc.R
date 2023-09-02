@@ -14,7 +14,11 @@ dot_plot <-  theme_bw()+theme(plot.title = element_text(hjust = .5,size = 24),
 
 
 # Other small less complex functions
-
+extract_accession <- function(input_string) {
+  result <- str_extract(input_string, "\\|([^|]+)\\|")
+  result <- substr(result, 2, nchar(result) - 1)
+  return(result)
+}
 
 inSet_norm <- function(Raw_data, cellenOne_meta){
   count = 0
@@ -63,4 +67,15 @@ normalize <- function(evnew,log = F){
   return(evnew)
 }
 
+create_peptide_vector <- function(protein_sequence, peptide) {
+  positions <- regexpr(peptide, protein_sequence)
+  binary_vector <- numeric(nchar(protein_sequence))
 
+  if (attr(positions, "match.length") > 0) {
+    peptide_start <- positions
+    peptide_end <- positions + attr(positions, "match.length") - 1
+    binary_vector[peptide_start:peptide_end] <- 1
+  }
+
+  return(binary_vector)
+}

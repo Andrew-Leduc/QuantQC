@@ -12,14 +12,14 @@
 #' add_numbers(2, 3)
 #' @export
 
-CVs <- function(nPOP_obj,thresh){
-  cell_id <- nPOP_obj@meta.data
+CVs <- function(QQC,thresh){
+  cell_id <- QQC@meta.data
   # Normalize peptide data
-  mat_norm <- Normalize_reference_vector(nPOP_obj@matricies@peptide)
+  mat_norm <- Normalize_reference_vector(QQC@matricies@peptide)
 
   mat_norm <- as.data.frame(mat_norm)
-  mat_norm$Protein <- nPOP_obj@matricies@peptide_protein_map$Protein
-  mat_norm$pep <- nPOP_obj@matricies@peptide_protein_map$seqcharge
+  mat_norm$Protein <- QQC@matricies@peptide_protein_map$Protein
+  mat_norm$pep <- QQC@matricies@peptide_protein_map$seqcharge
 
   # convert to data.table for fast computation
   mat_norm <- as.data.table(mat_norm)
@@ -82,10 +82,10 @@ CVs <- function(nPOP_obj,thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-SharedPeptideCor <- function(nPOP_obj, res = 'sc'){
-  peptide_data <- nPOP_obj@matricies@peptide
-  protein_dat <- nPOP_obj@matricies@protein
-  peptide_protein_map <- nPOP_obj@matricies@peptide_protein_map
+SharedPeptideCor <- function(QQC, res = 'sc'){
+  peptide_data <- QQC@matricies@peptide
+  protein_dat <- QQC@matricies@protein
+  peptide_protein_map <- QQC@matricies@peptide_protein_map
 
 
   peptide_data <- Normalize_reference_vector(peptide_data,log = T)
@@ -177,9 +177,9 @@ SharedPeptideCor <- function(nPOP_obj, res = 'sc'){
   pep_cor$FC <- as.character(pep_cor$FC)
 
 
-  nPOP_obj@pep.cor <- list(pep_cor,median(as.numeric(mat_stor_fake[,2]),na.rm = T))
+  QQC@pep.cor <- list(pep_cor,median(as.numeric(mat_stor_fake[,2]),na.rm = T))
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
@@ -193,10 +193,10 @@ SharedPeptideCor <- function(nPOP_obj, res = 'sc'){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotPepCor <- function(nPOP_obj){
+PlotPepCor <- function(QQC){
 
-  pep_cor <- nPOP_obj@pep.cor[[1]]
-  null_dist <- nPOP_obj@pep.cor[[2]]
+  pep_cor <- QQC@pep.cor[[1]]
+  null_dist <- QQC@pep.cor[[2]]
 
   ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot(color="black", fill = 'gray') + xlab('Mean abs(protein fold change)') +
     ylab('Correlation between peptides mapping to a protein')+
@@ -354,19 +354,19 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotProtAndPep <- function(nPOP_obj){
+PlotProtAndPep <- function(QQC){
   # count peptide numbers
-  numb_pep <- colSums(is.na(nPOP_obj@matricies@peptide)==F)
+  numb_pep <- colSums(is.na(QQC@matricies@peptide)==F)
   numb_pep <- as.data.frame(numb_pep)
   colnames(numb_pep) <- 'Number_precursors'
 
   # count protein numbers
-  numb_prot <- colSums(is.na(nPOP_obj@matricies@protein)==F)
+  numb_prot <- colSums(is.na(QQC@matricies@protein)==F)
   numb_prot <- as.data.frame(numb_prot)
   colnames(numb_prot) <- 'Number_proteins'
 
   # Plot peptide and protein numbers
-  if(nPOP_obj@ms_type == 'DDA'){
+  if(QQC@ms_type == 'DDA'){
     pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
 
     prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
@@ -374,22 +374,22 @@ PlotProtAndPep <- function(nPOP_obj){
     return(pep_number+prot_number)
   }
 
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+  if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
 
-    numb_pep_NF <- colSums(nPOP_obj@matricies@peptide_mask==T)
+    numb_pep_NF <- colSums(QQC@matricies@peptide_mask==T)
     numb_pep_NF <- as.data.frame(numb_pep_NF)
     colnames(numb_pep_NF) <- 'Number_precursors'
     numb_pep_NF$Filter <- 'No Ch Qvalue Filter'
-    numb_pep$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+    numb_pep$Filter <- paste0(QQC@misc[['ChQ']], ' Channel Q Value')
 
     numb_pep <- rbind(numb_pep,numb_pep_NF)
 
     # count protein numbers
-    numb_prot_NF <- colSums(nPOP_obj@matricies@protein_mask==T)
+    numb_prot_NF <- colSums(QQC@matricies@protein_mask==T)
     numb_prot_NF <- as.data.frame(numb_prot_NF)
     colnames(numb_prot_NF) <- 'Number_proteins'
     numb_prot_NF$Filter <- 'No Ch Qvalue Filter'
-    numb_prot$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+    numb_prot$Filter <- paste0(QQC@misc[['ChQ']], ' Channel Q Value')
 
     numb_prot <- rbind(numb_prot,numb_prot_NF)
 
@@ -413,9 +413,9 @@ PlotProtAndPep <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotDataComplete <- function(nPOP_obj){
+PlotDataComplete <- function(QQC){
 
-  data <- nPOP_obj@matricies@protein
+  data <- QQC@matricies@protein
 
   missingness_cell_filt <- colSums(is.na(data) == F)/nrow(data)
   missingness_cell_mat <- reshape2::melt(missingness_cell_filt)
@@ -423,7 +423,7 @@ PlotDataComplete <- function(nPOP_obj){
   missingness_prot_filt <- rowSums(is.na(data)==F)/ncol(data)
   missingness_prot_mat <- reshape2::melt(missingness_prot_filt)
 
-  if(nPOP_obj@ms_type == 'DDA'){
+  if(QQC@ms_type == 'DDA'){
     mp <- ggplot(missingness_prot_mat, aes(x = value)) +
       geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
 
@@ -436,25 +436,25 @@ PlotDataComplete <- function(nPOP_obj){
   }
 
 
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+  if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
 
-    missingness_cell_NF <- colSums(nPOP_obj@matricies@protein_mask)/nrow(data)
+    missingness_cell_NF <- colSums(QQC@matricies@protein_mask)/nrow(data)
     missingness_cell_mat_NF <- reshape2::melt(missingness_cell_NF)
     colnames(missingness_cell_mat_NF) <- 'Cell_miss'
     missingness_cell_mat_NF$Filter <- 'No Ch Qvalue Filter'
     colnames(missingness_cell_mat) <- 'Cell_miss'
-    missingness_cell_mat$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+    missingness_cell_mat$Filter <- paste0(QQC@misc[['ChQ']], ' Channel Q Value')
 
 
     missingness_cell_mat <- rbind(missingness_cell_mat,missingness_cell_mat_NF)
 
     # count protein numbers
-    missingness_prot_NF <- rowSums(nPOP_obj@matricies@protein_mask)/ncol(data)
+    missingness_prot_NF <- rowSums(QQC@matricies@protein_mask)/ncol(data)
     missingness_prot_mat_NF <- reshape2::melt(missingness_prot_NF)
     colnames(missingness_prot_mat_NF) <- 'Miss_proteins'
     missingness_prot_mat_NF$Filter <- 'No Ch Qvalue Filter'
     colnames(missingness_prot_mat) <- 'Miss_proteins'
-    missingness_prot_mat$Filter <- paste0(nPOP_obj@misc[['ChQ']], ' Channel Q Value')
+    missingness_prot_mat$Filter <- paste0(QQC@misc[['ChQ']], ' Channel Q Value')
 
     missingness_prot_mat <- rbind(missingness_prot_mat,missingness_prot_mat_NF)
 
@@ -489,16 +489,16 @@ PlotDataComplete <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotSCtoCarrierRatio <- function(nPOP_obj){
+PlotSCtoCarrierRatio <- function(QQC){
 
   do_plot <- "No carrier used"
 
-  if(nPOP_obj@ms_type == "DDA"){
+  if(QQC@ms_type == "DDA"){
 
-    sc.data <- nPOP_obj@raw_data
-    good_cells <- colnames(nPOP_obj@matricies@peptide)
+    sc.data <- QQC@raw_data
+    good_cells <- colnames(QQC@matricies@peptide)
 
-    cellenOne_meta <- nPOP_obj@meta.data
+    cellenOne_meta <- QQC@meta.data
     good_cells_p_negs <- c(good_cells,cellenOne_meta$ID[cellenOne_meta$sample == 'neg'])
 
     ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",1:18))
@@ -522,10 +522,10 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
 
   }
 
-  if(nPOP_obj@ms_type == "DIA_C"){
+  if(QQC@ms_type == "DIA_C"){
 
-    cellenOne_meta <- nPOP_obj@meta.data
-    Filt_ratio <- nPOP_obj@matricies@peptide #%>% dplyr::select(good_cells$variable)
+    cellenOne_meta <- QQC@meta.data
+    Filt_ratio <- QQC@matricies@peptide #%>% dplyr::select(good_cells$variable)
     Filt_ratio <- reshape2::melt(Filt_ratio)
     Filt_ratio_cell <- Filt_ratio %>% group_by(Var2) %>% dplyr::summarise(value_new = median(value,na.rm = T))
     Filt_ratio_cell <- Filt_ratio_cell %>% left_join(cellenOne_meta,by = c('Var2'='ID'))
@@ -554,10 +554,10 @@ PlotSCtoCarrierRatio <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotCellSizeVsIntensity <- function(nPOP_obj, type = 'sample'){
-  meta <- nPOP_obj@meta.data
+PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
+  meta <- QQC@meta.data
 
-  good_cells <- colnames(nPOP_obj@matricies@peptide)
+  good_cells <- colnames(QQC@matricies@peptide)
   meta <- meta %>% dplyr::filter(ID %in% good_cells)
 
   title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'),2))
@@ -593,21 +593,48 @@ PlotCellSizeVsIntensity <- function(nPOP_obj, type = 'sample'){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
+ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = NA){
 
-  if(is.null(nPOP_obj@reductions[['UMAP']])==F){
+  if(is.na(fasta_path) == T){
+    if(QQC@misc[['Species']] == 'Mouse'){
+      fasta_seq <- read.fasta(system.file("extdata", "Mouse.fasta", package = "QuantQC"),seqtype =  "AA",as.string = T)
+    }
+    if(QQC@misc[['Species']] == 'Human'){
+      fasta_seq <- read.fasta(system.file("extdata", "Human.fasta", package = "QuantQC"),seqtype =  "AA",as.string = T)
+    }
+  }
+
+  if(is.na(fasta_path) == F){
+    fasta_seq <- read.fasta(fasta_path,seqtype =  "AA",as.string = T)
+
+  }
+
+  names(fasta_seq) <- sapply(names(fasta_seq), extract_accession)
+
+  fasta_seq_prot <- fasta_seq[[prot]][[1]]
+
+  if(is.null(fasta_seq_prot)==T){
+    return('Protein not found in fasta')
+  }
+
+  protein_sequence <- data.frame(
+    sequence = 1:nchar(fasta_seq_prot),
+    color = 'black'
+  )
+
+  if(is.null(QQC@reductions[['UMAP']])==F){
 
 
 
-    if(nPOP_obj@ms_type =='DDA'){
-      raw_pep_intense <- nPOP_obj@raw_data
+    if(QQC@ms_type =='DDA'){
+      raw_pep_intense <- QQC@raw_data
       raw_pep_intense <- raw_pep_intense %>% filter(Leading.razor.protein == prot)
       raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Reporter.intensity.1,na.rm=T))
       raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
 
     }
-    if(nPOP_obj@ms_type =='DIA' | nPOP_obj@ms_type =='DIA_C'){
-      raw_pep_intense <- nPOP_obj@raw_data
+    if(QQC@ms_type =='DIA' | QQC@ms_type =='DIA_C'){
+      raw_pep_intense <- QQC@raw_data
       raw_pep_intense <- raw_pep_intense %>% filter(Protein.Group == prot)
       raw_pep_intense <- raw_pep_intense %>% group_by(seqcharge) %>% summarise(pep_raw = median(Ms1.Area,na.rm=T))
       raw_pep_intense <- raw_pep_intense[order(-raw_pep_intense$pep_raw),]
@@ -621,8 +648,8 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     # Get 4 best peptides
 
 
-    clusters <- nPOP_obj@reductions[['UMAP']]
-    prot_map <- nPOP_obj@matricies@peptide_protein_map %>% filter(Protein == prot)
+    clusters <- QQC@reductions[['UMAP']]
+    prot_map <- QQC@matricies@peptide_protein_map %>% filter(Protein == prot)
 
     raw_pep_intense_prot <- raw_pep_intense %>% filter(seqcharge %in% prot_map$seqcharge)
     if(nrow(raw_pep_intense_prot)>4){
@@ -633,8 +660,8 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     }
 
     prot_map <- prot_map %>% filter(seqcharge %in% raw_pep_intense_prot$seqcharge)
-    pep_mat <- (Normalize_reference_vector(nPOP_obj@matricies@peptide,log = T))
-    rownames(pep_mat) <- nPOP_obj@matricies@peptide_protein_map$seqcharge
+    pep_mat <- (Normalize_reference_vector(QQC@matricies@peptide,log = T))
+    rownames(pep_mat) <- QQC@matricies@peptide_protein_map$seqcharge
 
     pep_mat <- pep_mat[prot_map$seqcharge,]
 
@@ -670,18 +697,18 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     prot_values$sd_error <- 0
     prot_values$numb_dp <- 0
     prot_values$numb_dp_z <- 0
-    prot_values$FractionCellsExpress <- " Less 33%"
+    prot_values$PctCellsMeasured <- NA
 
     pep_mat_values$sd_error <- pep_mat_SD$sd_error
     pep_mat_values$numb_dp <- pep_mat_count$numb_data
     pep_mat_values$numb_dp_z <- scale(pep_mat_values$numb_dp)[,1]
 
     pep_mat_values$Var3 <- pep_mat_values$Var1
-    prot_values$Var3 <- 'Protein'
+    prot_values$Var3 <- ' Protein'
 
 
     # Transform z-scores into quantiles
-    pep_mat_values$FractionCellsExpress <- cut(pep_mat_values$numb_dp, breaks = 3,
+    pep_mat_values$PctCellsMeasured <- cut(pep_mat_values$numb_dp, breaks = 3,
                                  labels = c( " Less 33%", "Greater 33%", "Greater 66%"))
 
 
@@ -698,20 +725,37 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
     if(type == 'line'){
       if(length(all$Var1) > 0){
 
+        create_peptide_vector
 
         plot_ <- ggplot(all, aes(x = cluster, y = med_abs, color = Var3, group = Var3)) +
           geom_line( aes(color = Var3)) +
-          geom_point(aes(size = FractionCellsExpress,color = Var3)) +
+          geom_point(aes(size = PctCellsMeasured,color = Var3)) +
           scale_size_manual(values = c(" Less 33%" = 2, "Greater 33%" = 4, "Greater 66%" = 6)) +
           geom_errorbar(aes(ymin = med_abs - sd_error, ymax = med_abs + sd_error, color = Var3), width = 0.2) +
           labs(x = "X-axis", y = "Y-axis") +
-          ggtitle(paste0(prot,", peptide agreemeent between clusters")) +
-          theme_bw() + scale_colour_manual(values = c("red", "blue", "green","purple","black"))+
+          ggtitle(paste0("Individual peptide vs all averaged peptides across clusters")) +
+          theme_bw() + scale_colour_manual(values = c("black","red", "blue", "green","purple"))+
           xlab('Clusters') +
           ggplot2::facet_wrap(~Var1, scales = "free_y") +
-          theme(strip.background = element_blank())+ylab('Log2(Abs)')
+          theme(strip.background = element_blank())+ylab('Log2(FoldChange)')+guides(color = "none")
 
-        return(plot_)
+        col_vect <- c("red", "blue", "green","purple")
+        count = 0
+        for(i in unique(all$Var1)){
+          count = count+1
+          peptide <- gsub('_','',i)
+          peptide <- gsub('[[:digit:]]+', '', peptide)
+
+          protein_sequence$color[create_peptide_vector(fasta_seq_prot, peptide) == 1] <- col_vect[count]
+        }
+
+        prot_for_plot <- ggplot(protein_sequence, aes(xmin = sequence - 0.5, xmax = sequence + 0.5, ymin = -0.2, ymax = 0.2, fill = color)) +
+          geom_rect() +
+          coord_cartesian(ylim = c(-0.5, 0.5)) +
+          scale_fill_identity() +
+          theme_void()+ggtitle('Peptide locations across protein')
+
+        return((prot_for_plot/plot_)+plot_layout(heights = c(1,10)) + plot_annotation(prot))
       }
     }
 
@@ -744,15 +788,15 @@ ProteinClustConsistency <- function(nPOP_obj, prot = NA, type = 'line'){
 }
 
 
-ImputationComparison <- function(nPOP_obj, cluster = 1){
+ImputationComparison <- function(QQC, cluster = 1){
   cluster = 1
-  clusters <- nPOP_obj@reductions[['UMAP']]
+  clusters <- QQC@reductions[['UMAP']]
   clusters$ID <- rownames(clusters)
 
 
 
-  prot_imp <- nPOP_obj@protein.imputed
-  prot_noimp <- nPOP_obj@protein
+  prot_imp <- QQC@protein.imputed
+  prot_noimp <- QQC@protein
 
 
   prot_imp <- reshape2::melt(prot_imp)
@@ -782,13 +826,13 @@ ImputationComparison <- function(nPOP_obj, cluster = 1){
 
 
 
-PlotMS1vMS2 <- function(nPOP_obj){
+PlotMS1vMS2 <- function(QQC){
 
-  peps <- nPOP_obj@matricies@peptide
-  raw_data <- nPOP_obj@raw_data
-  raw_data <- raw_data %>% filter(Channel.Q.Value < nPOP_obj@misc[['ChQ']])
+  peps <- QQC@matricies@peptide
+  raw_data <- QQC@raw_data
+  raw_data <- raw_data %>% filter(Channel.Q.Value < QQC@misc[['ChQ']])
 
-  rownames(peps) <- nPOP_obj@matricies@peptide_protein_map$seqcharge
+  rownames(peps) <- QQC@matricies@peptide_protein_map$seqcharge
 
   raw_data <- raw_data %>% filter(ID %in% colnames(peps))
 

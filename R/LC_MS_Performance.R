@@ -10,16 +10,16 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-Calculate_run_order_statistics <- function(nPOP_obj){
+Calculate_run_order_statistics <- function(QQC){
 
-  if(nPOP_obj@ms_type == 'DDA'){
-    nPOP_obj <- Calculate_run_order_statistics_DDA(nPOP_obj)
+  if(QQC@ms_type == 'DDA'){
+    QQC <- Calculate_run_order_statistics_DDA(QQC)
   }
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
-    nPOP_obj <- Calculate_run_order_statistics_DIA(nPOP_obj)
+  if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
+    QQC <- Calculate_run_order_statistics_DIA(QQC)
   }
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
@@ -33,10 +33,10 @@ Calculate_run_order_statistics <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-Calculate_run_order_statistics_DDA <- function(nPOP_obj){
+Calculate_run_order_statistics_DDA <- function(QQC){
 
 
-  Raw_data <- nPOP_obj@raw_data
+  Raw_data <- QQC@raw_data
 
   Raw_data_IDs <- reshape2::dcast(Raw_data,seqcharge ~ Order, value.var = 'Intensity')
   NumbRunIDs <- colSums(is.na(Raw_data_IDs[,2:ncol(Raw_data_IDs)])==F)
@@ -75,9 +75,9 @@ Calculate_run_order_statistics_DDA <- function(nPOP_obj){
   RT_df$Run <- as.numeric(names(RT_means))
 
 
-  nPOP_obj@run_order.statistics <- list(IDs_df,MS1_means_df,MS2_means_df,RT_df)
+  QQC@run_order.statistics <- list(IDs_df,MS1_means_df,MS2_means_df,RT_df)
 
-  return(nPOP_obj)
+  return(QQC)
 }
 
 #' Add two numbers.
@@ -90,10 +90,10 @@ Calculate_run_order_statistics_DDA <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-Calculate_run_order_statistics_DIA <- function(nPOP_obj){
+Calculate_run_order_statistics_DIA <- function(QQC){
 
 
-  Raw_data <- nPOP_obj@raw_data
+  Raw_data <- QQC@raw_data
 
 
   Raw_data_IDs <- Raw_data %>% group_by(Order) %>% dplyr::summarise(NumbRunIDs = sum(is.na(Ms1.Area)==F))
@@ -119,9 +119,9 @@ Calculate_run_order_statistics_DIA <- function(nPOP_obj){
   RT_df$RT_means <- RT_df_mean$RT_means
 
 
-  nPOP_obj@run_order.statistics <- list(Raw_data_IDs,Raw_data_MS1,Raw_data_MS2,RT_df)
+  QQC@run_order.statistics <- list(Raw_data_IDs,Raw_data_MS1,Raw_data_MS2,RT_df)
 
-  return(nPOP_obj)
+  return(QQC)
 }
 
 #' Add two numbers.
@@ -134,17 +134,17 @@ Calculate_run_order_statistics_DIA <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotIntensityDrift <- function(nPOP_obj){
+PlotIntensityDrift <- function(QQC){
 
-  IDs <- ggplot(nPOP_obj@run_order.statistics[[1]], aes(x = Run,y = NumbRunIDs)) + geom_point()+dot_plot +
+  IDs <- ggplot(QQC@run_order.statistics[[1]], aes(x = Run,y = NumbRunIDs)) + geom_point()+dot_plot +
     ggtitle('Run IDs as runs progress') + ylab('# Precursor IDs')
 
 
-  MS1 <- ggplot(nPOP_obj@run_order.statistics[[2]], aes(x = Run,y = MS1_means)) + geom_point()+dot_plot +
+  MS1 <- ggplot(QQC@run_order.statistics[[2]], aes(x = Run,y = MS1_means)) + geom_point()+dot_plot +
     ggtitle('Intersected MS1 Intensity as runs progress') + ylab('Log2( Normalized to run 1)')
 
 
-  MS2 <- ggplot(nPOP_obj@run_order.statistics[[3]], aes(x = Run,y = MS2_means)) + geom_point()+dot_plot+
+  MS2 <- ggplot(QQC@run_order.statistics[[3]], aes(x = Run,y = MS2_means)) + geom_point()+dot_plot+
     ggtitle('MS2 Intensity as runs progress')+ylab('Log2(Normalized to run 1)')
 
 
@@ -161,12 +161,12 @@ PlotIntensityDrift <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotRTDrift <- function(nPOP_obj){
+PlotRTDrift <- function(QQC){
 
-  Mean <-ggplot(nPOP_obj@run_order.statistics[[4]], aes(x = Run,y = RT_means)) + geom_point()+dot_plot +
+  Mean <-ggplot(QQC@run_order.statistics[[4]], aes(x = Run,y = RT_means)) + geom_point()+dot_plot +
     ggtitle('Mean RT Drift as runs progress (seconds)')
 
-  SDs <- ggplot(nPOP_obj@run_order.statistics[[4]], aes(x = Run,y = RT_sds)) + geom_point() +dot_plot+
+  SDs <- ggplot(QQC@run_order.statistics[[4]], aes(x = Run,y = RT_sds)) + geom_point() +dot_plot+
     ggtitle('RT Standard Deviation as runs progress')
 
   Mean/SDs

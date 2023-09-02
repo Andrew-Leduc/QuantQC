@@ -13,17 +13,17 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-cellXpeptide <- function(nPOP_obj, chQVal = 1){
+cellXpeptide <- function(QQC, chQVal = 1){
 
-  if(nPOP_obj@ms_type == 'DIA' |nPOP_obj@ms_type == 'DIA_C' ){
-    nPOP_obj <- cellXpeptide_DIA(nPOP_obj, chQVal)
+  if(QQC@ms_type == 'DIA' |QQC@ms_type == 'DIA_C' ){
+    QQC <- cellXpeptide_DIA(QQC, chQVal)
   }
 
-  if(nPOP_obj@ms_type == 'DDA'){
-    nPOP_obj <- TMT_Reference_channel_norm(nPOP_obj)
+  if(QQC@ms_type == 'DDA'){
+    QQC <- TMT_Reference_channel_norm(QQC)
   }
 
-  return(nPOP_obj)
+  return(QQC)
 }
 
 
@@ -37,9 +37,9 @@ cellXpeptide <- function(nPOP_obj, chQVal = 1){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-TMT_Reference_channel_norm <- function(nPOP_obj){
+TMT_Reference_channel_norm <- function(QQC){
 
-  sc.data <- nPOP_obj@raw_data
+  sc.data <- QQC@raw_data
 
   ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:18))
 
@@ -70,9 +70,9 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 
   data_matricies <- new('matricies_DDA',peptide = as.matrix(sc.data[,3:ncol(sc.data)]),peptide_protein_map = prot_pep_map)
 
-  nPOP_obj@matricies <- data_matricies
+  QQC@matricies <- data_matricies
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
@@ -92,11 +92,11 @@ TMT_Reference_channel_norm <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-cellXpeptide_DIA <- function(nPOP_obj, chQVal = 1){
+cellXpeptide_DIA <- function(QQC, chQVal = 1){
 
-  Raw_data <- nPOP_obj@raw_data
-  plex <- nPOP_obj@misc[['plex']]
-  type <- nPOP_obj@ms_type
+  Raw_data <- QQC@raw_data
+  plex <- QQC@misc[['plex']]
+  type <- QQC@ms_type
 
 
 
@@ -152,9 +152,9 @@ cellXpeptide_DIA <- function(nPOP_obj, chQVal = 1){
   data_matricies <- new('matricies_DIA',peptide = Raw_data_lim.d_filt,peptide_mask = pep_mask,peptide_protein_map = peptide_protein_map)
 
 
-  nPOP_obj@matricies <- data_matricies
-  nPOP_obj@misc[['ChQ']] <- chQVal
-  return(nPOP_obj)
+  QQC@matricies <- data_matricies
+  QQC@misc[['ChQ']] <- chQVal
+  return(QQC)
 
 }
 
@@ -300,10 +300,10 @@ DIA_carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-KNN_impute<-function(nPOP_obj, k = 3){
+KNN_impute<-function(QQC, k = 3){
 
 
-  sc.data <- nPOP_obj@matricies@protein
+  sc.data <- QQC@matricies@protein
 
 
 
@@ -376,11 +376,11 @@ KNN_impute<-function(nPOP_obj, k = 3){
 
 
 
-  nPOP_obj@matricies@protein.imputed <- sc.data.imp
+  QQC@matricies@protein.imputed <- sc.data.imp
 
 
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
@@ -447,9 +447,9 @@ Normalize_reference_vector_log <- function(dat){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-CollapseToProtein <- function(nPOP_obj, opt){
+CollapseToProtein <- function(QQC, opt){
 
-  sc.data <- nPOP_obj@matricies@peptide
+  sc.data <- QQC@matricies@peptide
   # This function colapses peptide level data to the protein level
   # There are different ways to collapse peptides mapping from the same
   # protein to a single data point. The simplest way is to take the median
@@ -470,7 +470,7 @@ CollapseToProtein <- function(nPOP_obj, opt){
     Normalize_peptide_data[Normalize_peptide_data == -Inf] <- NA
 
     #Re-Join data
-    Normalize_peptide_data <- as.data.table(cbind(nPOP_obj@matricies@peptide_protein_map,Normalize_peptide_data))
+    Normalize_peptide_data <- as.data.table(cbind(QQC@matricies@peptide_protein_map,Normalize_peptide_data))
 
     # Remove peptides observed less than 10 times
     Normalize_peptide_data <- Normalize_peptide_data[rowSums(is.na(Normalize_peptide_data)==F) > 9,]
@@ -492,13 +492,13 @@ CollapseToProtein <- function(nPOP_obj, opt){
     # Re-column and row normalize:
     Normalize_protein_data<-Normalize_reference_vector_log(Normalize_protein_data)
 
-    nPOP_obj@matricies@protein <- Normalize_protein_data
+    QQC@matricies@protein <- Normalize_protein_data
 
 
-    if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+    if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
 
-      prot_NF <- nPOP_obj@matricies@peptide_mask
-      prot_NF <- cbind(prot_NF,nPOP_obj@matricies@peptide_protein_map)
+      prot_NF <- QQC@matricies@peptide_mask
+      prot_NF <- cbind(prot_NF,QQC@matricies@peptide_protein_map)
       prot_NF$seqcharge <- NULL
       prot_NF <- reshape2::melt(prot_NF,id.var = 'Protein')
       prot_NF <- prot_NF %>% dplyr::group_by(Protein,variable) %>% dplyr::summarise(numb = sum(value)>0)
@@ -506,11 +506,11 @@ CollapseToProtein <- function(nPOP_obj, opt){
       prot_NF <- reshape2::dcast(prot_NF,Protein~variable,value.var = 'numb')
       prot_NF$Protein <- NULL
       prot_NF <- as.matrix(prot_NF)
-      nPOP_obj@matricies@protein_mask <- prot_NF
+      QQC@matricies@protein_mask <- prot_NF
 
     }
 
-    return(nPOP_obj)
+    return(QQC)
 
   }
 
@@ -521,7 +521,7 @@ CollapseToProtein <- function(nPOP_obj, opt){
     library(diann)
     #Max LFQ protein level
 
-    sc.data <- nPOP_obj@raw_data
+    sc.data <- QQC@raw_data
 
     #sc.data <-
 
@@ -550,11 +550,11 @@ CollapseToProtein <- function(nPOP_obj, opt){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-BatchCorrect <- function(nPOP_obj){
+BatchCorrect <- function(QQC){
 
-  cellenONE_meta <- nPOP_obj@meta.data
-  protein_mat_imputed <- nPOP_obj@matricies@protein.imputed
-  protein_mat <- nPOP_obj@matricies@protein
+  cellenONE_meta <- QQC@meta.data
+  protein_mat_imputed <- QQC@matricies@protein.imputed
+  protein_mat <- QQC@matricies@protein
 
   # Get meta data for batch correction
   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(protein_mat_imputed))
@@ -573,11 +573,11 @@ BatchCorrect <- function(nPOP_obj){
   sc.batch_cor_noimp <- sc.batch_cor
   sc.batch_cor_noimp[is.na(protein_mat)==T] <- NA
 
-  nPOP_obj@matricies@protein.imputed <- sc.batch_cor
-  nPOP_obj@matricies@protein <- sc.batch_cor_noimp
+  QQC@matricies@protein.imputed <- sc.batch_cor
+  QQC@matricies@protein <- sc.batch_cor_noimp
 
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
@@ -587,16 +587,16 @@ BatchCorrect <- function(nPOP_obj){
 
 
 
-# BatchCorrectPeptide <- function(nPOP_obj){
+# BatchCorrectPeptide <- function(QQC){
 #
-#   cellenONE_meta <- nPOP_obj@meta.data
+#   cellenONE_meta <- QQC@meta.data
 #
-#   peptide_mat <- nPOP_obj@peptide
+#   peptide_mat <- QQC@peptide
 #   peptide_mat <- Normalize_reference_vector(peptide_mat, log = T)
-#   nPOP_obj@peptide <- peptide_mat
+#   QQC@peptide <- peptide_mat
 #
-#   nPOP_obj <- KNN_impute(nPOP_obj, k = 3, dat = 'peptide')
-#   peptide_mat_imputed <- nPOP_obj@peptide.imputed
+#   QQC <- KNN_impute(QQC, k = 3, dat = 'peptide')
+#   peptide_mat_imputed <- QQC@peptide.imputed
 #
 #   # Get meta data for batch correction
 #   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(peptide_mat_imputed))
@@ -615,10 +615,10 @@ BatchCorrect <- function(nPOP_obj){
 #   sc.batch_cor_noimp <- sc.batch_cor
 #   sc.batch_cor_noimp[is.na(peptide_mat)==T] <- NA
 #
-#   nPOP_obj@peptide.imputed <- sc.batch_cor
-#   nPOP_obj@peptide <- sc.batch_cor_noimp
+#   QQC@peptide.imputed <- sc.batch_cor
+#   QQC@peptide <- sc.batch_cor_noimp
 #
 #
-#   return(nPOP_obj)
+#   return(QQC)
 #
 # }

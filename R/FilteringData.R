@@ -10,32 +10,32 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-EvaluateNegativeControls <- function(nPOP_obj,CV_thresh){
+EvaluateNegativeControls <- function(QQC,CV_thresh){
 
-  if(nrow(nPOP_obj@meta.data)==0){
+  if(nrow(QQC@meta.data)==0){
     return("Must map sample identites to data first")
   }
 
 
-  if(nPOP_obj@ms_type == 'DDA'){
-    nPOP_obj <- EvaluateNegativeControls_DDA(nPOP_obj,CV_thresh)
+  if(QQC@ms_type == 'DDA'){
+    QQC <- EvaluateNegativeControls_DDA(QQC,CV_thresh)
   }
 
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type ==  'DIA_C'){
-    nPOP_obj <- EvaluateNegativeControls_DIA(nPOP_obj)
+  if(QQC@ms_type == 'DIA' | QQC@ms_type ==  'DIA_C'){
+    QQC <- EvaluateNegativeControls_DIA(QQC)
   }
 
 
-  return(nPOP_obj)
+  return(QQC)
 
 
 }
 
-EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
+EvaluateNegativeControls_DDA <- function(QQC,CV_thresh){
 
 
   # Compute CVs of cells and negative controls, function outputs CV plot and list of cells with CVs
-  CVm <- CVs(nPOP_obj,CV_thresh)
+  CVm <- CVs(QQC,CV_thresh)
 
 
   # Get IDs of cells with median protein CVs (good_cells is a df with cell ID and CV)
@@ -50,7 +50,7 @@ EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
 
 
   # Count the number of peptides in negative controls and good single cells
-  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@matricies@peptide,nPOP_obj@meta.data,good_cells)
+  Peptide_counts_by_sample <- Count_peptides_per_cell(QQC@matricies@peptide,QQC@meta.data,good_cells)
 
 
   # Plot distributions
@@ -64,25 +64,25 @@ EvaluateNegativeControls_DDA <- function(nPOP_obj,CV_thresh){
   Peptide_counts_by_sample$variable <- rownames(Peptide_counts_by_sample)
   neg_meta <-  CVm %>% left_join(Peptide_counts_by_sample, by = c('variable'))
 
-  nPOP_obj@neg_ctrl.info <- neg_meta
+  QQC@neg_ctrl.info <- neg_meta
 
-  return(nPOP_obj)
+  return(QQC)
 
 
 }
 
-EvaluateNegativeControls_DIA <- function(nPOP_obj){
+EvaluateNegativeControls_DIA <- function(QQC){
 
 
   # Count the number of peptides in negative controls and good single cells
-  Peptide_counts_by_sample <- Count_peptides_per_cell(nPOP_obj@matricies@peptide,nPOP_obj@meta.data)
+  Peptide_counts_by_sample <- Count_peptides_per_cell(QQC@matricies@peptide,QQC@meta.data)
 
   #Ref_norm_data_filtered <- Ref_norm_data[,colnames(Ref_norm_data) %in% cols_to_keep]
   Peptide_counts_by_sample$variable <- rownames(Peptide_counts_by_sample)
 
-  nPOP_obj@neg_ctrl.info <- Peptide_counts_by_sample
+  QQC@neg_ctrl.info <- Peptide_counts_by_sample
 
-  return(nPOP_obj)
+  return(QQC)
 
 
 }
@@ -97,12 +97,12 @@ EvaluateNegativeControls_DIA <- function(nPOP_obj){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotNegCtrl <- function(nPOP_obj,CV_thresh){
+PlotNegCtrl <- function(QQC,CV_thresh){
 
 
-  plot_data <- nPOP_obj@neg_ctrl.info
+  plot_data <- QQC@neg_ctrl.info
 
-  if(nPOP_obj@ms_type == 'DDA'){
+  if(QQC@ms_type == 'DDA'){
 
     peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('precursors per cell')) + ylab('# of samples')+dot_plot
 
@@ -125,7 +125,7 @@ PlotNegCtrl <- function(nPOP_obj,CV_thresh){
   }
 
 
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type ==  'DIA_C'){
+  if(QQC@ms_type == 'DIA' | QQC@ms_type ==  'DIA_C'){
     peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
 
     return(peps)
@@ -143,19 +143,19 @@ PlotNegCtrl <- function(nPOP_obj,CV_thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
+FilterBadCells <- function(QQC, CV_thresh = NA, min_pep = NA){
 
-  neg_filter <- nPOP_obj@neg_ctrl.info
-  peptide_data <- nPOP_obj@matricies@peptide
+  neg_filter <- QQC@neg_ctrl.info
+  peptide_data <- QQC@matricies@peptide
 
 
-  if(nPOP_obj@ms_type == 'DIA' | nPOP_obj@ms_type == 'DIA_C'){
+  if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
     neg_filter <- neg_filter %>% dplyr::filter(type != 'negative ctrl')
     neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
 
   }
 
-  if(nPOP_obj@ms_type == 'DDA'){
+  if(QQC@ms_type == 'DDA'){
     neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
     if(is.na(min_pep)==F){
       neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
@@ -166,8 +166,8 @@ FilterBadCells <- function(nPOP_obj, CV_thresh = NA, min_pep = NA){
   }
 
   peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
-  nPOP_obj@matricies@peptide <- peptide_data
-  return(nPOP_obj)
+  QQC@matricies@peptide <- peptide_data
+  return(QQC)
 
 }
 

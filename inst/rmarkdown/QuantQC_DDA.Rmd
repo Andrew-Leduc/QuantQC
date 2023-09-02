@@ -120,7 +120,6 @@ PlotMS1vMS2(Trachea_3_7_prot)
 
 nPOP_obj_Exp <- CollapseToProtein(nPOP_obj_Exp,1)
 
-
 PlotProtAndPep(nPOP_obj_Exp)
 
 ```

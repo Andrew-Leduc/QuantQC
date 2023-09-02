@@ -8,9 +8,9 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-ComputePCA <- function(nPOP_obj){
-  sc.batch_cor <- nPOP_obj@matricies@protein.imputed
-  cellenONE_meta <- nPOP_obj@meta.data
+ComputePCA <- function(QQC){
+  sc.batch_cor <- QQC@matricies@protein.imputed
+  cellenONE_meta <- QQC@meta.data
 
   # Correlation matrix for PCA
   cor_mat <- cor(sc.batch_cor,use = 'pairwise.complete.obs')
@@ -29,15 +29,15 @@ ComputePCA <- function(nPOP_obj){
   scx$ID <-colnames(sc.batch_cor)
   scx <- scx %>% left_join(cellenONE_meta,by = c('ID'))
 
-  nPOP_obj@reductions <- list(PCA = scx)
+  QQC@reductions <- list(PCA = scx)
 
-  return(nPOP_obj)
+  return(QQC)
 
 }
 
 
-PlotPCA <- function(nPOP_obj, by = 'Condition'){
-  PCA_plot <- nPOP_obj@reductions[['PCA']]
+PlotPCA <- function(QQC, by = 'Condition'){
+  PCA_plot <- QQC@reductions[['PCA']]
 
   if(by == 'Condition'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = sample)) + geom_point()+
@@ -63,9 +63,9 @@ PlotPCA <- function(nPOP_obj, by = 'Condition'){
 }
 
 
-ComputeUMAP <- function(nPOP_obj){
-  protein_Data <- nPOP_obj@matricies@protein.imputed
-  scx <- nPOP_obj@reductions[['PCA']]
+ComputeUMAP <- function(QQC){
+  protein_Data <- QQC@matricies@protein.imputed
+  scx <- QQC@reductions[['PCA']]
 
   prot_umap <- CreateSeuratObject(counts = protein_Data, project = "prot_mat")
   prot_umap <- NormalizeData(prot_umap, normalization.method = "LogNormalize", scale.factor = 10000)
@@ -92,14 +92,14 @@ ComputeUMAP <- function(nPOP_obj){
   # ggplot(um_plot, aes(x = UMAP_1,y = UMAP_2, color = cluster)) + geom_point(size = 3) + theme_classic()+
   #   ggtitle('UMAP colored by Sample')
 
-  nPOP_obj@reductions[['UMAP']] <- um_plot
+  QQC@reductions[['UMAP']] <- um_plot
 
-  return(nPOP_obj)
+  return(QQC)
 }
 
 
-PlotUMAP <- function(nPOP_obj, by = 'Cluster'){
-  UMAP_plot <- nPOP_obj@reductions[['UMAP']]
+PlotUMAP <- function(QQC, by = 'Cluster'){
+  UMAP_plot <- QQC@reductions[['UMAP']]
 
   if(by == 'Cluster'){
     umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = cluster)) + geom_point()+
@@ -129,14 +129,14 @@ PlotUMAP <- function(nPOP_obj, by = 'Cluster'){
 }
 
 
-FeatureUMAP <- function(nPOP_obj, prot = NA, imputed = T){
-  UMAP_plot <- nPOP_obj@reductions[['UMAP']]
+FeatureUMAP <- function(QQC, prot = NA, imputed = T){
+  UMAP_plot <- QQC@reductions[['UMAP']]
 
   if(imputed == T){
-    prot_mat <- nPOP_obj@matricies@protein.imputed
+    prot_mat <- QQC@matricies@protein.imputed
   }
   if(imputed == F){
-    prot_mat <- nPOP_obj@matricies@protein
+    prot_mat <- QQC@matricies@protein
   }
 
   UMAP_plot$protein <- prot_mat[prot,]
