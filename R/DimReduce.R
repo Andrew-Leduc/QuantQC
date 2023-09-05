@@ -1,12 +1,12 @@
-#' Add two numbers.
+#' Computes PCA
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' This function takes a QQC object and computes PCA on the unimputed protein level data taking the eigen
+#' values of a correlation matrix computed off pairwise observations.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
+#' @param QQC a QuantQC object
+#' @return A \code{QQC object} with the reductions slot containing a PCA data.frame in list
 #' @examples
-#' add_numbers(2, 3)
+#' ComputePCA(TestSamples)
 #' @export
 ComputePCA <- function(QQC){
   sc.batch_cor <- QQC@matricies@protein.imputed
@@ -35,7 +35,17 @@ ComputePCA <- function(QQC){
 
 }
 
-
+#' Plots PCA
+#'
+#' This function takes a QQC object and plots PC1 and PC2 as a scatter plot. It can be colored by different
+#' options like sort condition, or various potential batch effect sorces
+#'
+#' @param QQC a QuantQC object
+#' @param by a string that specifies how to color code PCA
+#' @return A \code{QQC object} with the reductions slot containing a PCA data.frame in list
+#' @examples
+#' ComputePCA(TestSamples)
+#' @export
 PlotPCA <- function(QQC, by = 'Condition'){
   PCA_plot <- QQC@reductions[['PCA']]
 
@@ -62,7 +72,16 @@ PlotPCA <- function(QQC, by = 'Condition'){
 
 }
 
-
+#' Computes UMAP
+#'
+#' This function takes a QQC object and computes UMAP on the imputed protein level data with the UMAP function
+#' from the Seurat package
+#'
+#' @param QQC a QuantQC object
+#' @return A \code{QQC object} with the reductions slot containing a UMAP data.frame in list
+#' @examples
+#' ComputeUMAP(TestSamples)
+#' @export
 ComputeUMAP <- function(QQC){
   protein_Data <- QQC@matricies@protein.imputed
   scx <- QQC@reductions[['PCA']]
@@ -97,7 +116,16 @@ ComputeUMAP <- function(QQC){
   return(QQC)
 }
 
-
+#' Computes PCA
+#'
+#' This function takes a QQC object and computes PCA on the unimputed protein level data taking the eigen
+#' values of a correlation matrix computed off pairwise observations.
+#'
+#' @param QQC a QuantQC object
+#' @return A \code{QQC object} with the reductions slot containing a PCA data.frame in list
+#' @examples
+#' ComputePCA(TestSamples)
+#' @export
 PlotUMAP <- function(QQC, by = 'Cluster'){
   UMAP_plot <- QQC@reductions[['UMAP']]
 
@@ -128,7 +156,16 @@ PlotUMAP <- function(QQC, by = 'Cluster'){
 
 }
 
-
+#' Computes PCA
+#'
+#' This function takes a QQC object and computes PCA on the unimputed protein level data taking the eigen
+#' values of a correlation matrix computed off pairwise observations.
+#'
+#' @param QQC a QuantQC object
+#' @return A \code{QQC object} with the reductions slot containing a PCA data.frame in list
+#' @examples
+#' ComputePCA(TestSamples)
+#' @export
 FeatureUMAP <- function(QQC, prot = NA, imputed = T){
   UMAP_plot <- QQC@reductions[['UMAP']]
 

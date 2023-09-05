@@ -52,7 +52,7 @@ matricies_DIA <- setClass(
 )
 
 
-#' Add two numbers.
+#' MaxQuant to QQC
 #'
 #' This function takes two numeric inputs and returns their sum.
 #'

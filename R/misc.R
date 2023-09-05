@@ -79,3 +79,18 @@ create_peptide_vector <- function(protein_sequence, peptide) {
 
   return(binary_vector)
 }
+
+
+
+ContainsMissedCleaved <- function(pep_list){
+
+  pep_list <- str_sub(pep_list,1,-2)
+
+  pep_list_K <- grepl("K", pep_list, fixed = TRUE)
+  pep_list_R <- grepl("R", pep_list, fixed = TRUE)
+
+  pep_list <- pep_list_K+pep_list_R
+
+  return(pep_list)
+
+}

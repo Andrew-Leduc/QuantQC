@@ -1,12 +1,13 @@
-#' Add two numbers.
+#' Link Manual Annotations to raw data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' This function takes a QuantQC (QQC) object as an input and return a QQC object
+#' that has sample meta data linked in the meta.data slot. Its only to be used if
+#' cellenONE files are not available
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
+#' @param QQC A QuantQC object.
+#' @return \code{QQC} object with linked sample meta data
 #' @examples
-#' add_numbers(2, 3)
+#' link_manual_Raw(TestSamples)
 #' @export
 link_manual_Raw <- function(QQC){
   linker <- QQC@meta.data
@@ -49,28 +50,28 @@ link_manual_Raw <- function(QQC){
 
 
 
-#' Add two numbers.
+#' Link CellenONE metadata
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' This function takes a QuantQC (QQC) object and file paths to cellenONE isolation files
+#' as a named list.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
+#' @param QQC A QuantQC object
+#' @param allCells A named list of file paths to cellenONE isolation files
+#' @return A QQC object with \code{QQC at meta.data} slot and \code{cellenONE.meta} slot linking raw data to meta data from cellenONE
 #' @examples
-#' add_numbers(2, 3)
+#' link_cellenONE_Raw(TestSamples,SortData_3_7)
 #' @export
-link_cellenONE_Raw <- function(QQC,allDays){
+link_cellenONE_Raw <- function(QQC,allCells){
+
   linker <- QQC@meta.data
 
 
   if(QQC@ms_type == 'DDA'){
-    cellenOne_data <- analyzeCellenONE_TMT(allDays)
+    cellenOne_data <- analyzeCellenONE_TMT(allCells)
   }
   if(QQC@ms_type == 'DIA' | QQC@ms_type =='DIA_C'){
-    cellenOne_data <- analyzeCellenONE_mTRAQ(allDays,QQC@misc[['plex']])
+    cellenOne_data <- analyzeCellenONE_mTRAQ(allCells,QQC@misc[['plex']])
   }
-
-
 
   peptide_data <- QQC@matricies@peptide
   # Get list of unique cell IDs
@@ -105,16 +106,7 @@ link_cellenONE_Raw <- function(QQC,allDays){
 
 
 
-#' Add two numbers.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
+
 analyzeCellenONE_TMT <- function(allDays){
 
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
@@ -295,16 +287,7 @@ analyzeCellenONE_TMT <- function(allDays){
 
 }
 
-#' Add two numbers.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
+
 analyzeCellenONE_mTRAQ <- function(allDays,plex){
   #plex = 2
   #allDays = all_cells
@@ -553,17 +536,16 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
 
 
 
-#' test1.
+#' Plot cellenONE droplets by cell types
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' This function takes plots the positions of the single cell droplets over glass slide colored
+#' by the type of sample sorted. Wells where sample is placed are written in text in center of drop array.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
+#' @param QQC A QQC object
+#' @return A plot
 #' @examples
-#' add_numbers(2, 3)
+#' PlotSlideLayout_celltype(TestSamples)
 #' @export
-
 PlotSlideLayout_celltype <- function(QQC){
 
   ggplot(QQC@cellenONE.meta) +
@@ -575,15 +557,15 @@ PlotSlideLayout_celltype <- function(QQC){
 }
 
 
-#' test1.
+#' Plot cellenONE droplets by labels
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' This function takes plots the positions of the single cell droplets over glass slide colored
+#' by the label used.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
+#' @param QQC A QQC object
+#' @return A plot
 #' @examples
-#' add_numbers(2, 3)
+#' PlotSlideLayout_celltype(TestSamples)
 #' @export
 PlotSlideLayout_label <- function(QQC){
 

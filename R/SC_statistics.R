@@ -88,9 +88,24 @@ SharedPeptideCor <- function(QQC, res = 'sc'){
   peptide_protein_map <- QQC@matricies@peptide_protein_map
 
 
+
   peptide_data <- Normalize_reference_vector(peptide_data,log = T)
 
+  if(res == 'clust'){
 
+    clusts <- QQC@reductions$UMAP$cluster
+
+    peptide_data_clust <- matrix(data = NA, nrow = nrow(peptide_data),ncol = length(unique(clusts)))
+    count <- 0
+    for(i in unique(clusts)){
+      count <- count + 1
+      peptide_data_clust[,count] <- rowMeans(peptide_data[,clusts == i],na.rm = T)
+
+    }
+
+    peptide_data <- peptide_data_clust
+
+  }
 
   # Initialized empty matricies to store correlations between peptides
   mat_stor = matrix(data = NA,nrow = 10000,ncol = 3)
@@ -193,15 +208,33 @@ SharedPeptideCor <- function(QQC, res = 'sc'){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-PlotPepCor <- function(QQC){
+PlotPepCor <- function(QQC,type = 'box'){
 
   pep_cor <- QQC@pep.cor[[1]]
   null_dist <- QQC@pep.cor[[2]]
 
-  ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot(color="black", fill = 'gray') + xlab('Mean abs(protein fold change)') +
-    ylab('Correlation between peptides mapping to a protein')+
-    stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")+
-    geom_hline(yintercept = null_dist, col = "red")+theme_linedraw()
+  if(type == 'box'){
+
+    plot_ <- ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot(color="black", fill = 'gray') + xlab('Mean abs(protein fold change)') +
+      ylab('Correlation; peptides mapping to protein')+
+      stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")+
+      geom_hline(yintercept = null_dist, col = "red")+dot_plot
+
+    return(plot_)
+
+  }
+  if(type == 'hist'){
+
+    plot_ <- ggplot(pep_cor, aes(x = Cor)) + geom_histogram(color="black", fill = 'gray') + ylab('# Proteins') +
+      xlab('Correlation; peptides mapping to protein')+
+      geom_vline(xintercept = null_dist, col = "red")+dot_plot
+
+    return(plot_)
+
+
+  }
+
+
 
 
 
@@ -479,6 +512,9 @@ PlotDataComplete <- function(QQC){
 }
 
 
+
+
+
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -554,13 +590,104 @@ PlotSCtoCarrierRatio <- function(QQC){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
+PlotDigestEff <- function(QQC){
+  do_plot <- "No carrier used"
+
+  if(QQC@ms_type == "DDA"){
+
+
+    sc.data <- QQC@matricies@peptide
+    peps <- QQC@matricies@peptide_protein_map$seqcharge
+    peps <- str_sub(peps,1,-4)
+
+    vect_MC <- ContainsMissedCleaved(peps)
+
+    for(i in 1:ncol(sc.data)){
+      sc.data[,i] <- sc.data[,i]/median(sc.data[,i],na.rm=T)
+
+    }
+
+    sc.data.reg <- sc.data[vect_MC == 0,]
+    sc.data.reg <- reshape2::melt(sc.data.reg)
+    sc.data.reg$cond <- 'Reg'
+
+    sc.data.MC <- sc.data[vect_MC != 0,]
+    sc.data.MC <- reshape2::melt(sc.data.MC)
+    sc.data.MC$cond <- 'MC'
+
+    sc.data <- rbind(sc.data.reg,sc.data.MC)
+
+    sc.data <- sc.data %>% filter(is.na(value)==F)
+
+    dig_eff <- round(median(sc.data.reg$value,na.rm = T)/median(sc.data.MC$value,na.rm = T),2)
+
+    do_plot <- ggplot(sc.data,aes(y = log2(value), x = cond))+
+      geom_boxplot() + ggtitle(paste0(dig_eff,'X digest efficiency of carrier'))+
+      ylab('log2(Intensity vs Carrier)')+xlab('')+dot_plot
+
+  }
+
+  if(QQC@ms_type == "DIA_C"){
+
+
+    sc.data <- QQC@matricies@peptide
+    peps <- QQC@matricies@peptide_protein_map$seqcharge
+    peps <- str_sub(peps,1,-3)
+
+
+
+    vect_MC <- ContainsMissedCleaved(peps)
+
+    for(i in 1:ncol(sc.data)){
+      sc.data[,i] <- sc.data[,i]/median(sc.data[,i],na.rm=T)
+
+    }
+
+    sc.data.reg <- sc.data[vect_MC == 0,]
+    sc.data.reg <- reshape2::melt(sc.data.reg)
+    sc.data.reg$cond <- 'Reg'
+
+    sc.data.MC <- sc.data[vect_MC != 0,]
+    sc.data.MC <- reshape2::melt(sc.data.MC)
+    sc.data.MC$cond <- 'MC'
+
+    sc.data <- rbind(sc.data.reg,sc.data.MC)
+
+    sc.data <- sc.data %>% filter(is.na(value)==F)
+
+    dig_eff <- round(median(sc.data.reg$value,na.rm = T)/median(sc.data.MC$value,na.rm = T),2)
+
+    do_plot <- ggplot(sc.data,aes(y = log2(value), x = cond))+
+      geom_boxplot() + ggtitle(paste0(dig_eff,'X digest efficiency of carrier'))+
+      ylab('log2(Intensity vs Carrier)')+xlab('')+dot_plot
+
+  }
+
+  do_plot
+}
+
+
+
+
+
+
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
 PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
   meta <- QQC@meta.data
 
   good_cells <- colnames(QQC@matricies@peptide)
   meta <- meta %>% dplyr::filter(ID %in% good_cells)
 
-  title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,meta$prot_total,use = 'pairwise.complete.obs'),2))
+  title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,10^meta$prot_total,use = 'pairwise.complete.obs'),2))
 
   if(type == 'sample'){
     plot_ <-  ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = sample)) + geom_point() +
@@ -570,16 +697,29 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
   }
 
   if(type == 'Run order'){
-    plot_ <-    ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = Order)) +
-      geom_point() + ggtitle(title_text)+
+
+
+    reg_ord <- coef(lm(prot_total~Order,data = meta))
+    meta$prot_total2 <- meta$prot_total - meta$Order*reg_ord[2]
+
+    plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = Order)) +
+      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Cubic microns)')+
       scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
       dot_plot
 
-    return(plot_)
+    title_text2 <- paste0('adj cor = ', round(cor((meta$diameter/2)^3,10^meta$prot_total2,use = 'pairwise.complete.obs'),2))
+
+    plot_2 <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total2),color = Order)) +
+      geom_point() + ggtitle(title_text2)+ylab('log2(Sum cell intens)')+ xlab('log2(Cubic microns)')+
+      scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
+      dot_plot
+
+    return(plot_+plot_2)
   }
 
 
 }
+
 
 
 
@@ -788,43 +928,17 @@ ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = N
 }
 
 
-ImputationComparison <- function(QQC, cluster = 1){
-  cluster = 1
-  clusters <- QQC@reductions[['UMAP']]
-  clusters$ID <- rownames(clusters)
 
-
-
-  prot_imp <- QQC@protein.imputed
-  prot_noimp <- QQC@protein
-
-
-  prot_imp <- reshape2::melt(prot_imp)
-  prot_imp <- prot_imp %>% left_join(clusters, by = c('Var2' = 'ID'))
-  prot_imp <- prot_imp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
-  prot_imp <- prot_imp %>% filter(cluster == 2)
-
-  prot_noimp <- reshape2::melt(prot_noimp)
-  prot_noimp <- prot_noimp %>% left_join(clusters, by = c('Var2' = 'ID'))
-  prot_noimp <- prot_noimp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
-  prot_noimp <- prot_noimp %>% filter(cluster == 2)
-
-
-  prot_noimp$imp <- prot_imp$prot_score
-
-  ggplot(prot_noimp, aes(x = prot_score, y = imp)) + geom_point()+ theme_bw()+
-    xlab('No Imputation') + ylab('With Imputation') +
-      ggtitle(paste0('Cluster ',cluster, ' Protein Averages, Cor = ',
-              round(cor(prot_noimp$prot_score,prot_imp$prot_score, use = 'pairwise.complete.obs'),3)))
-
-
-
-
-
-
-}
-
-
+#' Add two numbers.
+#'
+#' This function takes two numeric inputs and returns their sum.
+#'
+#' @param x A numeric value.
+#' @param y A numeric value.
+#' @return The sum of \code{x} and \code{y}.
+#' @examples
+#' add_numbers(2, 3)
+#' @export
 
 PlotMS1vMS2 <- function(QQC){
 
@@ -884,4 +998,47 @@ PlotMS1vMS2 <- function(QQC){
 
 
 }
+
+
+
+
+
+
+
+ImputationComparison <- function(QQC, cluster = 1){
+  cluster = 1
+  clusters <- QQC@reductions[['UMAP']]
+  clusters$ID <- rownames(clusters)
+
+
+
+  prot_imp <- QQC@protein.imputed
+  prot_noimp <- QQC@protein
+
+
+  prot_imp <- reshape2::melt(prot_imp)
+  prot_imp <- prot_imp %>% left_join(clusters, by = c('Var2' = 'ID'))
+  prot_imp <- prot_imp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
+  prot_imp <- prot_imp %>% filter(cluster == 2)
+
+  prot_noimp <- reshape2::melt(prot_noimp)
+  prot_noimp <- prot_noimp %>% left_join(clusters, by = c('Var2' = 'ID'))
+  prot_noimp <- prot_noimp %>% group_by(cluster,Var1) %>% summarise(prot_score = median(value,na.rm=T))
+  prot_noimp <- prot_noimp %>% filter(cluster == 2)
+
+
+  prot_noimp$imp <- prot_imp$prot_score
+
+  ggplot(prot_noimp, aes(x = prot_score, y = imp)) + geom_point()+ theme_bw()+
+    xlab('No Imputation') + ylab('With Imputation') +
+    ggtitle(paste0('Cluster ',cluster, ' Protein Averages, Cor = ',
+                   round(cor(prot_noimp$prot_score,prot_imp$prot_score, use = 'pairwise.complete.obs'),3)))
+
+
+
+
+
+
+}
+
 

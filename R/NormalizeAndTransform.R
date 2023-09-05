@@ -550,7 +550,11 @@ CollapseToProtein <- function(QQC, opt){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-BatchCorrect <- function(QQC){
+BatchCorrect <- function(QQC, labels = T, run = F, batch = T){
+
+  if(run == T & batch == T){
+    return("cant correct on run and batch")
+  }
 
   cellenONE_meta <- QQC@meta.data
   protein_mat_imputed <- QQC@matricies@protein.imputed
@@ -562,9 +566,27 @@ BatchCorrect <- function(QQC){
 
 
 
+
   # Perform batch corrections, possible sources label bias, Every LC/MS runs or groups of LC/MS runs
   #sc.batch_cor <- ComBat(protein_mat_imputed, batch=factor(batch_label$label))
-  sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$injectWell, batch2 = batch_label$label)
+
+  if(labels == T & run == T){
+    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$injectWell, batch2 = batch_label$label)
+  }
+  if(labels == T & batch == T){
+    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$label, batch2 = batch_label$LCMS_Batch)
+  }
+  if(labels == T & batch == F & run == F){
+    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$label)
+  }
+  if(labels == F & batch == T & run == F){
+    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$LCMS_Batch)
+  }
+  if(labels == F & batch == F & run == T){
+    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$injectWell)
+  }
+
+
 
   # Re normalize and NA out imputed values
   sc.batch_cor <- Normalize_reference_vector_log(sc.batch_cor)
