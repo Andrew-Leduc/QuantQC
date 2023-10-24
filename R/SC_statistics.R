@@ -216,7 +216,7 @@ PlotPepCor <- function(QQC,type = 'box'){
   if(type == 'box'){
 
     plot_ <- ggplot(pep_cor, aes(y = Cor, x = FC)) + geom_boxplot(color="black", fill = 'gray') + xlab('Mean abs(protein fold change)') +
-      ylab('Correlation; peptides mapping to protein')+
+      ylab('Cor.; peptides mapping to protein')+
       stat_summary(fun.data=f, geom="text", vjust=-0.5, col="blue")+
       geom_hline(yintercept = null_dist, col = "red")+dot_plot
 
@@ -319,16 +319,17 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 
     # Count number peptides in each negative control
     sum_neg <- colSums(is.na(neg_mat)==F)
-
+    sum_neg_int <- colSums(neg_mat,na.rm = T)
     # Make data frame for plotting
     neg_df <- as.data.frame(sum_neg)
     colnames(neg_df) <- 'Number_precursors'
+    neg_df$intense <- sum_neg_int
     neg_df$type <- 'negative ctrl'
 
     # Add in 0s for any negative controls with 0 peptides
     if(zero_peptide_negs != 0 ){
       for(i in 1:zero_peptide_negs){
-        neg_df[nrow(neg_df) + 1,] = c(0,"negative ctrl")
+        neg_df[nrow(neg_df) + 1,] = c(0,0,"negative ctrl")
       }
     }
 
@@ -339,6 +340,7 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
     # Make data frame for plotting
     neg_df <- as.data.frame(matrix(data = 0,ncol = 1,nrow = length(negative_IDs)))
     colnames(neg_df) <- 'Number_precursors'
+    neg_df$intense <- 0
     neg_df$type <- 'negative ctrl'
 
   }
@@ -357,12 +359,13 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
   }
 
   # Sum number peptides for all real cells
-  sum_cell <- colSums(is.na(sum_cell)==F)
-
+  sum_cell_id <- colSums(is.na(sum_cell)==F)
+  sum_cell_intense <- colSums(sum_cell,na.rm = T)
 
   # Make cell count data frame for plotting
-  pos_df <- as.data.frame(sum_cell)
+  pos_df <- as.data.frame(sum_cell_id)
   colnames(pos_df) <- 'Number_precursors'
+  pos_df$intense <-  sum_cell_intense
   pos_df$type <- 'single cells'
 
   # Combind positive and negative control data frames
@@ -609,11 +612,11 @@ PlotDigestEff <- function(QQC){
 
     sc.data.reg <- sc.data[vect_MC == 0,]
     sc.data.reg <- reshape2::melt(sc.data.reg)
-    sc.data.reg$cond <- 'Reg'
+    sc.data.reg$cond <- 'Regular'
 
     sc.data.MC <- sc.data[vect_MC != 0,]
     sc.data.MC <- reshape2::melt(sc.data.MC)
-    sc.data.MC$cond <- 'MC'
+    sc.data.MC$cond <- 'Missed Cleaved'
 
     sc.data <- rbind(sc.data.reg,sc.data.MC)
 
@@ -669,8 +672,6 @@ PlotDigestEff <- function(QQC){
 
 
 
-
-
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -703,14 +704,14 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
     meta$prot_total2 <- meta$prot_total - meta$Order*reg_ord[2]
 
     plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = Order)) +
-      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Cubic microns)')+
+      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Vol.) cubic uM')+
       scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
       dot_plot
 
     title_text2 <- paste0('adj cor = ', round(cor((meta$diameter/2)^3,10^meta$prot_total2,use = 'pairwise.complete.obs'),2))
 
     plot_2 <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total2),color = Order)) +
-      geom_point() + ggtitle(title_text2)+ylab('log2(Sum cell intens)')+ xlab('log2(Cubic microns)')+
+      geom_point() + ggtitle(title_text2)+ylab('log2(Sum cell intens)')+ xlab('log2(Vol.) cubic uM')+
       scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
       dot_plot
 
@@ -804,6 +805,14 @@ ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = N
     rownames(pep_mat) <- QQC@matricies@peptide_protein_map$seqcharge
 
     pep_mat <- pep_mat[prot_map$seqcharge,]
+    if(nrow(pep_mat) > 2){
+      pep_mat_cor <- cor(t(pep_mat),use = 'pairwise.complete.obs')
+      pep_mat_cor <- round(median(pep_mat_cor[lower.tri(pep_mat_cor)],na.rm = T),3)
+
+    }
+    if(nrow(pep_mat) == 2){
+      pep_mat_cor <- round(cor(pep_mat,use = 'pairwise.complete.obs'))
+    }
 
     pep_mat <- reshape2::melt(pep_mat)
     clusters$ID <- rownames(clusters)
@@ -895,7 +904,7 @@ ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = N
           scale_fill_identity() +
           theme_void()+ggtitle('Peptide locations across protein')
 
-        return((prot_for_plot/plot_)+plot_layout(heights = c(1,10)) + plot_annotation(prot))
+        return((prot_for_plot/plot_)+plot_layout(heights = c(1,10)) + plot_annotation(paste0(prot,' Median cor. = ',pep_mat_cor)))
       }
     }
 

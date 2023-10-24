@@ -131,21 +131,21 @@ PlotUMAP <- function(QQC, by = 'Cluster'){
 
   if(by == 'Cluster'){
     umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = cluster)) + geom_point()+
-      dot_plot
+      um_plot
   }
 
   if(by == 'Condition'){
     umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = sample)) + geom_point()+
-      dot_plot
+      um_plot
   }
   if(by == 'Total protein'){
     umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = prot_total)) + geom_point()+
-      dot_plot + scale_color_gradient2(midpoint = median(UMAP_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
+      um_plot + scale_color_gradient2(midpoint = median(UMAP_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
   }
 
   if(by == 'Label'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = label)) + geom_point()+
-      dot_plot
+    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = lab)) + geom_point()+
+      um_plot
   }
 
   if(by == 'Run order'){

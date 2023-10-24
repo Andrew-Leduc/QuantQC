@@ -61,16 +61,16 @@ link_manual_Raw <- function(QQC){
 #' @examples
 #' link_cellenONE_Raw(TestSamples,SortData_3_7)
 #' @export
-link_cellenONE_Raw <- function(QQC,allCells){
+link_cellenONE_Raw <- function(QQC,cells_file){
 
   linker <- QQC@meta.data
 
 
   if(QQC@ms_type == 'DDA'){
-    cellenOne_data <- analyzeCellenONE_TMT(allCells)
+    cellenOne_data <- analyzeCellenONE_TMT(cells_file)
   }
   if(QQC@ms_type == 'DIA' | QQC@ms_type =='DIA_C'){
-    cellenOne_data <- analyzeCellenONE_mTRAQ(allCells,QQC@misc[['plex']])
+    cellenOne_data <- analyzeCellenONE_mTRAQ(cells_file,QQC@misc[['plex']])
   }
 
   peptide_data <- QQC@matricies@peptide
@@ -107,13 +107,13 @@ link_cellenONE_Raw <- function(QQC,allCells){
 
 
 
-analyzeCellenONE_TMT <- function(allDays){
-
+analyzeCellenONE_TMT <- function(cells_file){
+  #cells_file <- all_cells
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
-  for(i in 1:length(allDays)){
-    df1 <- read.delim(allDays[[i]])
-    df1$condition <- names(allDays[i])
+  for(i in 1:length(cells_file)){
+    df1 <- read.delim(cells_file[[i]])
+    df1$condition <- names(cells_file[i])
 
     if(i == 1){
       df <- df1
@@ -123,15 +123,21 @@ analyzeCellenONE_TMT <- function(allDays){
 
   }
 
-  allDays <- df
+  cells_file <- df
 
   #file_paths
   labelPath <- system.file("extdata", "14plex_files/Labels.fld", package = "QuantQC")
   pickupPath1 <-  system.file("extdata", "14plex_files/Pickup_mock.fld", package = "QuantQC")
 
 
-  allDays[grepl("Transmission",allDays$X),]$X <- NA
-  allDays <- allDays %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
+  cells_file[grepl("Transmission",cells_file$X),]$X <- NA
+  cells_file <- cells_file %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
+
+  #cells_file1 <- cells_file %>% filter(XPos > 50)
+  #cells_file1$XPos <- cells_file1$XPos + 1
+  #cells_file2<- cells_file %>% filter(XPos < 50)
+  #cells_file <- rbind(cells_file2,cells_file1)
+
 
   #### Labelling and Pickup Field Files
   ## labelling file
@@ -211,18 +217,18 @@ analyzeCellenONE_TMT <- function(allDays){
   label$well <- substring(label$well, 4)
 
 
-  label <- label %>% filter(field %in% unique(allDays$Field))
-  pickup <- pickup %>% filter(field %in% unique(allDays$Field))
+  label <- label %>% filter(field %in% unique(cells_file$Field))
+  pickup <- pickup %>% filter(field %in% unique(cells_file$Field))
 
   #### Trying to map label to cell
   ###  lets try and keep all three important in one
-  allDays <- transform(allDays, xyf = paste0(XPos, YPos, Field))
+  cells_file <- transform(cells_file, xyf = paste0(XPos, YPos, Field))
   label <- transform(label, xyf = paste0(xPos, yPos, field))
 
 
   ### Isolation and Label merged
 
-  isoLab <- allDays %>% group_by(Target) %>% left_join(label, by = 'xyf')
+  isoLab <- cells_file %>% group_by(Target) %>% left_join(label, by = 'xyf')
   labelCount <- isoLab %>% group_by(well) %>% dplyr::summarize(count=n())
 
 
@@ -288,13 +294,13 @@ analyzeCellenONE_TMT <- function(allDays){
 }
 
 
-analyzeCellenONE_mTRAQ <- function(allDays,plex){
-  #plex = 2
-  #allDays = all_cells
+analyzeCellenONE_mTRAQ <- function(cells_file,plex){
+  #plex = 3
+  #cells_file = all_cells
 
-  for(i in 1:length(allDays)){
-    df1 <- read.delim(allDays[[i]])
-    df1$condition <- names(allDays[i])
+  for(i in 1:length(cells_file)){
+    df1 <- read.delim(cells_file[[i]])
+    df1$condition <- names(cells_file[i])
 
     if(i == 1){
       df <- df1
@@ -304,7 +310,7 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
 
   }
 
-  allDays <- df
+  cells_file <- df
 
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
@@ -314,22 +320,23 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
 
     # 2plex
     labelPath <- system.file("extdata", "2plex_files/Labels.fld", package = "QuantQC")
-    pickupPath1 <- system.file("extdata", "2plex_files/Pickup_1_mock.fld", package = "QuantQC")
-    pickupPath2 <- system.file("extdata", "2plex_files/Pickup_2_mock.fld", package = "QuantQC")
+    pickupPath1 <- system.file("extdata", "2plex_files/Pickup_mock_1.fld", package = "QuantQC")
+    pickupPath2 <- system.file("extdata", "2plex_files/Pickup_mock_2.fld", package = "QuantQC")
 
   }
   if(plex == 3){
 
     # 3plex
     labelPath <- system.file("extdata", "3plex_files/Labels.fld", package = "QuantQC")
-    pickupPath1 <- system.file("extdata", "3plex_files/Pickup_1_mock.fld", package = "QuantQC")
-    pickupPath2 <- system.file("extdata", "3plex_files/Pickup_2_mock.fld", package = "QuantQC")
+    pickupPath1 <- system.file("extdata", "3plex_files/Pickup_mock_1.fld", package = "QuantQC")
+    pickupPath2 <- system.file("extdata", "3plex_files/Pickup_mock_2.fld", package = "QuantQC")
   }
 
 
-  allDays[grepl("Transmission",allDays$X),]$X <- NA
-  allDays <- allDays %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
+  cells_file[grepl("Transmission",cells_file$X),]$X <- NA
+  cells_file <- cells_file %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
 
+  cells_file <- cells_file %>% filter(YPos < 69)
   #### Labelling and Pickup Field Files
   ## labelling file
 
@@ -410,18 +417,18 @@ analyzeCellenONE_mTRAQ <- function(allDays,plex){
   label$well <- substring(label$well, 4)
 
 
-  label <- label %>% filter(field %in% unique(allDays$Field))
-  pickup <- pickup %>% filter(field %in% unique(allDays$Field))
+  label <- label %>% filter(field %in% unique(cells_file$Field))
+  pickup <- pickup %>% filter(field %in% unique(cells_file$Field))
 
 
   #### Trying to map label to cell
   ###  lets try and keep all three important in one
-  allDays <- transform(allDays, xyf = paste0(XPos, YPos, Field))
+  cells_file <- transform(cells_file, xyf = paste0(XPos, YPos, Field))
   label <- transform(label, xyf = paste0(xPos, yPos, field))
 
   ### Isolation and Label merged
 
-  isoLab <- allDays %>% group_by(Target) %>% left_join(label, by = 'xyf')
+  isoLab <- cells_file %>% group_by(Target) %>% left_join(label, by = 'xyf')
   labelCount <- isoLab %>% group_by(well) %>% dplyr::summarize(count=n())
 
   ## trying to get pickup working in the same way

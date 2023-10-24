@@ -13,10 +13,10 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-cellXpeptide <- function(QQC, chQVal = 1){
+cellXpeptide <- function(QQC, TQVal = 1, chQVal = 1){
 
   if(QQC@ms_type == 'DIA' |QQC@ms_type == 'DIA_C' ){
-    QQC <- cellXpeptide_DIA(QQC, chQVal)
+    QQC <- cellXpeptide_DIA(QQC,TQVal, chQVal)
   }
 
   if(QQC@ms_type == 'DDA'){
@@ -92,7 +92,7 @@ TMT_Reference_channel_norm <- function(QQC){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-cellXpeptide_DIA <- function(QQC, chQVal = 1){
+cellXpeptide_DIA <- function(QQC,TQVal, chQVal){
 
   Raw_data <- QQC@raw_data
   plex <- QQC@misc[['plex']]
@@ -114,6 +114,7 @@ cellXpeptide_DIA <- function(QQC, chQVal = 1){
 
   Raw_data <- Raw_data %>% filter(plex %in% plex_used)
   Raw_data_filt <- Raw_data %>% filter(Channel.Q.Value < chQVal)
+  Raw_data_filt <- Raw_data %>% filter(Translated.Q.Value < TQVal)
 
   Raw_data_lim_filt <- Raw_data_filt %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
   Raw_data_lim.d_filt <- reshape2::dcast(Raw_data_lim_filt,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
@@ -447,7 +448,7 @@ Normalize_reference_vector_log <- function(dat){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-CollapseToProtein <- function(QQC, opt){
+CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
   sc.data <- QQC@matricies@peptide
   # This function colapses peptide level data to the protein level
@@ -462,7 +463,13 @@ CollapseToProtein <- function(QQC, opt){
     Normalize_peptide_data <- as.matrix(sc.data)
 
     # Normalize peptide data for cell size and then to relative abundances and log transform
-    Normalize_peptide_data <- Normalize_reference_vector(Normalize_peptide_data,log = T)
+    if(norm == 'std'){
+      Normalize_peptide_data <- normalize(Normalize_peptide_data,log = T)
+    }
+    if(norm == 'ref'){
+      Normalize_peptide_data <- Normalize_reference_vector(Normalize_peptide_data,log = T)
+    }
+
 
 
     # Remove unwanted values
@@ -490,7 +497,13 @@ CollapseToProtein <- function(QQC, opt){
     Normalize_protein_data$Protein <- NULL
 
     # Re-column and row normalize:
-    Normalize_protein_data<-Normalize_reference_vector_log(Normalize_protein_data)
+    if(norm == 'std'){
+      Normalize_protein_data <- normalize_log(Normalize_protein_data)
+    }
+    if(norm == 'ref'){
+      Normalize_protein_data <- Normalize_reference_vector_log(Normalize_protein_data)
+    }
+
 
     QQC@matricies@protein <- Normalize_protein_data
 
@@ -529,9 +542,10 @@ CollapseToProtein <- function(QQC, opt){
     protein_mat <- diann_maxlfq(sc.data,sample.header = "File.Name",group.header = "Protein.Group",id.header = "seqcharge",quantity.header = "Ms1.Area")
 
     #Normalize protein level data and log transform
-    Normalize_protein_data <- Normalize_reference_vector(protein_mat, log = 'yes')
-
-    return(Normalize_protein_data)
+    #Normalize_protein_data <- Normalize_reference_vector(protein_mat, log = 'yes')
+    Normalize_protein_data <- normalize(protein_mat, log = T)
+    QQC@matricies@protein <- Normalize_protein_data
+    return(QQC)
   }
 
 
@@ -550,7 +564,7 @@ CollapseToProtein <- function(QQC, opt){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-BatchCorrect <- function(QQC, labels = T, run = F, batch = T){
+BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
 
   if(run == T & batch == T){
     return("cant correct on run and batch")
@@ -589,7 +603,13 @@ BatchCorrect <- function(QQC, labels = T, run = F, batch = T){
 
 
   # Re normalize and NA out imputed values
-  sc.batch_cor <- Normalize_reference_vector_log(sc.batch_cor)
+  if(norm == 'std'){
+    sc.batch_cor <- normalize_log(sc.batch_cor)
+  }
+  if(norm == 'ref'){
+    sc.batch_cor <- Normalize_reference_vector_log(sc.batch_cor)
+  }
+
 
   # Store unimputed matrix
   sc.batch_cor_noimp <- sc.batch_cor

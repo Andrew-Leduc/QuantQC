@@ -164,7 +164,7 @@ DIANN_to_QQC <- function(path,linker_path,plex,carrier = F){
   linker$Order <- 1:nrow(linker)
 
   columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence',
-                      'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Channel.Q.Value')
+                      'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
 
   Raw_data <- data.table::fread(path,select = columns_to_read)
 
@@ -192,7 +192,8 @@ DIANN_to_QQC <- function(path,linker_path,plex,carrier = F){
   Raw_data$uq <- NULL
 
   if(carrier == F){
-    QQC <- new('QQC',raw_data = Raw_data,ms_type = 'DIA', misc = list(plex = plex))
+    QQC <- new('QQC',raw_data = Raw_data,ms_type = 'DIA',meta.data = linker ,misc = list(plex = plex))
+
   }
   if(carrier == T){
     QQC <- new('QQC',raw_data = Raw_data, meta.data = linker, ms_type = 'DIA_C', misc = list(plex = plex))

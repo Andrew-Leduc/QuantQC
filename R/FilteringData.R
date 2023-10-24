@@ -126,7 +126,8 @@ PlotNegCtrl <- function(QQC,CV_thresh){
 
 
   if(QQC@ms_type == 'DIA' | QQC@ms_type ==  'DIA_C'){
-    peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('# precursors per sample')) + ylab('# of samples')+dot_plot
+    peps <- ggplot(plot_data, aes( x = log10(intense), fill = type)) + geom_histogram(position = 'identity',alpha = .5) + ggtitle(paste0('Negative ctrl Vs Single cells')) + ylab('# of samples')+dot_plot+
+      xlab('log10(Intensity)')
 
     return(peps)
   }
