@@ -308,13 +308,15 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 
   # If negative control has 0 peptides detected, it will be left out of sc.data,
   # find negative controls with 0 peptides detected so 0s can be included on plot
-  zero_peptide_negs <- length(negative_IDs) - length(intersect(negative_IDs,colnames(sc.data)))
+
+  numb_neg_controls <- length(intersect(negative_IDs,colnames(sc.data)))
 
 
-  #If negative controls are not all 0 peptides, count number peptides for non 0 negative controls
-  if(zero_peptide_negs != length(negative_IDs)){
+  #If negative controls are not all 0 peptides and there are more than 2, count number peptides for non 0 negative controls
+  if(numb_neg_controls > 1){
 
     # Data matrix for negative controls
+
     neg_mat <- sc.data[,negative_IDs]
 
     # Count number peptides in each negative control
@@ -334,15 +336,22 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
     }
 
 
-  }else{
+  }else if(numb_neg_controls == 1){
     # If the negative controls all have 0 peptides measured
+    neg_vect <- sc.data[,negative_IDs]
 
+    # Make data frame for plotting
+    neg_df <- as.data.frame(matrix(data = 0,ncol = 1,nrow = length(negative_IDs)))
+    colnames(neg_df) <- 'Number_precursors'
+    neg_df$intense <- sum(is.na(neg_vect)==F)
+    neg_df$type <- 'negative ctrl'
+
+  }else{
     # Make data frame for plotting
     neg_df <- as.data.frame(matrix(data = 0,ncol = 1,nrow = length(negative_IDs)))
     colnames(neg_df) <- 'Number_precursors'
     neg_df$intense <- 0
     neg_df$type <- 'negative ctrl'
-
   }
 
 
