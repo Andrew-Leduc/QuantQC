@@ -147,7 +147,7 @@ cellXpeptide_DIA <- function(QQC,TQVal, chQVal){
   Raw_data_lim.d_filt <- as.matrix(Raw_data_lim.d_filt[,3:ncol(Raw_data_lim.d_filt)])
   Raw_data_lim.d_NF <- as.matrix(Raw_data_lim.d_NF[,3:ncol(Raw_data_lim.d_NF)])
   Raw_data_lim.d_NF[Raw_data_lim.d_NF==0] <- NA
-  pep_mask <- is.na(Raw_data_lim.d_NF)
+  pep_mask <- is.na(Raw_data_lim.d_NF)==F
 
 
   data_matricies <- new('matricies_DIA',peptide = Raw_data_lim.d_filt,peptide_mask = pep_mask,peptide_protein_map = peptide_protein_map)
@@ -451,6 +451,8 @@ Normalize_reference_vector_log <- function(dat){
 CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
   sc.data <- QQC@matricies@peptide
+  sc.data_mask <- QQC@matricies@peptide_mask
+
   # This function colapses peptide level data to the protein level
   # There are different ways to collapse peptides mapping from the same
   # protein to a single data point. The simplest way is to take the median
@@ -536,15 +538,39 @@ CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
     sc.data <- QQC@raw_data
 
-    #sc.data <-
+
 
 
     protein_mat <- diann_maxlfq(sc.data,sample.header = "File.Name",group.header = "Protein.Group",id.header = "seqcharge",quantity.header = "Ms1.Area")
 
     #Normalize protein level data and log transform
-    #Normalize_protein_data <- Normalize_reference_vector(protein_mat, log = 'yes')
-    Normalize_protein_data <- normalize(protein_mat, log = T)
+    if(norm == 'std'){
+      Normalize_peptide_data <- normalize(protein_mat,log = T)
+    }
+    if(norm == 'ref'){
+      Normalize_peptide_data <- Normalize_reference_vector(protein_mat,log = T)
+    }
     QQC@matricies@protein <- Normalize_protein_data
+
+
+
+    if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
+
+      prot_NF <- QQC@matricies@peptide_mask
+      prot_NF <- cbind(prot_NF,QQC@matricies@peptide_protein_map)
+      prot_NF$seqcharge <- NULL
+      prot_NF <- reshape2::melt(prot_NF,id.var = 'Protein')
+      prot_NF <- prot_NF %>% dplyr::group_by(Protein,variable) %>% dplyr::summarise(numb = sum(value)>0)
+
+      prot_NF <- reshape2::dcast(prot_NF,Protein~variable,value.var = 'numb')
+      prot_NF$Protein <- NULL
+      prot_NF <- as.matrix(prot_NF)
+      QQC@matricies@protein_mask <- prot_NF
+
+    }
+
+
+
     return(QQC)
   }
 
@@ -591,7 +617,7 @@ BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
     sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$label, batch2 = batch_label$LCMS_Batch)
   }
   if(labels == T & batch == F & run == F){
-    sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$label)
+    sc.batch_cor <- sva::ComBat(protein_mat_imputed,batch = batch_label$label)
   }
   if(labels == F & batch == T & run == F){
     sc.batch_cor <- limma::removeBatchEffect(protein_mat_imputed,batch = batch_label$LCMS_Batch)

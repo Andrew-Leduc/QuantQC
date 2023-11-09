@@ -302,6 +302,9 @@ inSet_completness <- function(Raw_data, cellenOne_meta){
 #' @export
 Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
   #sc.data <- Raw_cell_mat
+
+
+
   # Get IDs for negative controls
   negative_IDs <- cellenONE_meta$ID[cellenONE_meta$sample == 'neg']
 
@@ -328,12 +331,14 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
     neg_df$intense <- sum_neg_int
     neg_df$type <- 'negative ctrl'
 
-    # Add in 0s for any negative controls with 0 peptides
-    if(zero_peptide_negs != 0 ){
-      for(i in 1:zero_peptide_negs){
-        neg_df[nrow(neg_df) + 1,] = c(0,0,"negative ctrl")
-      }
-    }
+
+
+    # # Add in 0s for any negative controls with 0 peptides
+    # if(zero_peptide_negs != 0 ){
+    #   for(i in 1:zero_peptide_negs){
+    #     neg_df[nrow(neg_df) + 1,] = c(0,0,"negative ctrl")
+    #   }
+    # }
 
 
   }else if(numb_neg_controls == 1){
@@ -700,8 +705,9 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
   title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,10^meta$prot_total,use = 'pairwise.complete.obs'),2))
 
   if(type == 'sample'){
-    plot_ <-  ggplot(meta, aes(x = (diameter/2)^3,y = prot_total,color = sample)) + geom_point() +
-      ggtitle(title_text)
+    plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = sample)) +
+      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Vol.) cubic uM')+
+      dot_plot
 
     return(plot_)
   }

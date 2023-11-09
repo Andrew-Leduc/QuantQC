@@ -144,22 +144,22 @@ PlotNegCtrl <- function(QQC,CV_thresh){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-FilterBadCells <- function(QQC, CV_thresh = NA, min_pep = NA){
+FilterBadCells <- function(QQC, CV_thresh = NA, min_intens = NA){
 
   neg_filter <- QQC@neg_ctrl.info
   peptide_data <- QQC@matricies@peptide
-
+  peptide_mask <- QQC@matricies@peptide_mask
 
   if(QQC@ms_type == 'DIA' | QQC@ms_type == 'DIA_C'){
     neg_filter <- neg_filter %>% dplyr::filter(type != 'negative ctrl')
-    neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
+    neg_filter <- neg_filter %>% dplyr::filter(log10(intense) > min_intens)
 
   }
 
   if(QQC@ms_type == 'DDA'){
     neg_filter <- neg_filter %>% dplyr::filter(value != 'neg')
     if(is.na(min_pep)==F){
-      neg_filter <- neg_filter %>% dplyr::filter(Number_precursors > min_pep)
+      neg_filter <- neg_filter %>% dplyr::filter(log10(intense) > min_intens)
     }
     neg_filter <- neg_filter %>% dplyr::filter(cvq < CV_thresh)
 
@@ -167,7 +167,10 @@ FilterBadCells <- function(QQC, CV_thresh = NA, min_pep = NA){
   }
 
   peptide_data <- peptide_data[,colnames(peptide_data) %in% neg_filter$variable]
+  peptide_mask <- peptide_mask[,colnames(peptide_mask) %in% neg_filter$variable]
   QQC@matricies@peptide <- peptide_data
+  QQC@matricies@peptide_mask <- peptide_mask
+
   return(QQC)
 
 }
