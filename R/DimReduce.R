@@ -8,8 +8,13 @@
 #' @examples
 #' ComputePCA(TestSamples)
 #' @export
-ComputePCA <- function(QQC){
-  sc.batch_cor <- QQC@matricies@protein.imputed
+ComputePCA <- function(QQC,imputed = T){
+  if(imputed == T){
+    sc.batch_cor <- QQC@matricies@protein.imputed
+  }else{
+    sc.batch_cor <- QQC@matricies@protein
+  }
+
   cellenONE_meta <- QQC@meta.data
 
   # Correlation matrix for PCA
@@ -25,11 +30,14 @@ ComputePCA <- function(QQC){
   plot(1:length(percent_var), percent_var, xlab="PC", ylab="% of variance explained")
 
 
+
   # Map meta data for plotting PCAs
   scx$ID <-colnames(sc.batch_cor)
   scx <- scx %>% left_join(cellenONE_meta,by = c('ID'))
 
   QQC@reductions <- list(PCA = scx)
+
+  QQC@misc[['pct_var']] <- round(percent_var,2)
 
   return(QQC)
 
@@ -49,23 +57,31 @@ ComputePCA <- function(QQC){
 PlotPCA <- function(QQC, by = 'Condition'){
   PCA_plot <- QQC@reductions[['PCA']]
 
+  pct_var <- QQC@misc[['pct_var']]
+
   if(by == 'Condition'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = sample)) + geom_point()+
-      dot_plot + ggtitle('PCA by Condition')
+      dot_plot + ggtitle('PCA by Condition') + xlab(paste0('PC1(',pct_var[1],'%)'))+
+      ylab(paste0('PC2(',pct_var[2],'%)'))
   }
   if(by == 'Total protein'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = prot_total)) + geom_point()+ ggtitle('PCA by Total Cell Intensity')+
-      dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
+      dot_plot + xlab(paste0('PC1(',pct_var[1],'%)'))+
+      ylab(paste0('PC2(',pct_var[2],'%)'))+
+      scale_color_gradient2(midpoint = median(PCA_plot$prot_total), low = 'blue',mid = 'white', high = 'red')
   }
 
   if(by == 'Label'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = label)) + geom_point()+
-      dot_plot + ggtitle('PCA by Label')
+      dot_plot + ggtitle('PCA by Label')+ xlab(paste0('PC1(',pct_var[1],'%)'))+
+      ylab(paste0('PC1(',pct_var[2],'%)'))
   }
 
   if(by == 'Run order'){
     pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = Order)) + geom_point() + ggtitle('PCA by Run Order')+
-      dot_plot + scale_color_gradient2(midpoint = median(PCA_plot$Order,na.rm = T), low = 'red',mid = 'white', high = 'blue')
+      dot_plot + xlab(paste0('PC1(',pct_var[1],'%)'))+
+      ylab(paste0('PC2(',pct_var[2],'%)'))+
+      scale_color_gradient2(midpoint = median(PCA_plot$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')
   }
 
   pca_plot
@@ -140,7 +156,7 @@ PlotUMAP <- function(QQC, by = 'Cluster'){
   }
   if(by == 'Total protein'){
     umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = prot_total)) + geom_point()+
-      um_plot + scale_color_gradient2(midpoint = median(UMAP_plot$prot_total), low = 'red',mid = 'white', high = 'blue')
+      um_plot + scale_color_gradient2(midpoint = median(UMAP_plot$prot_total), low = 'blue',mid = 'white', high = 'red')
   }
 
   if(by == 'Label'){

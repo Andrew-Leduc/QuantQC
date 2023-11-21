@@ -67,7 +67,7 @@ link_cellenONE_Raw <- function(QQC,cells_file){
 
 
   if(QQC@ms_type == 'DDA'){
-    cellenOne_data <- analyzeCellenONE_TMT(cells_file)
+    cellenOne_data <- analyzeCellenONE_TMT(cells_file,QQC@misc[['plex']])
   }
   if(QQC@ms_type == 'DIA' | QQC@ms_type =='DIA_C'){
     cellenOne_data <- analyzeCellenONE_mTRAQ(cells_file,QQC@misc[['plex']])
@@ -107,7 +107,7 @@ link_cellenONE_Raw <- function(QQC,cells_file){
 
 
 
-analyzeCellenONE_TMT <- function(cells_file){
+analyzeCellenONE_TMT <- function(cells_file,plex){
   #cells_file <- all_cells
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
@@ -126,8 +126,20 @@ analyzeCellenONE_TMT <- function(cells_file){
   cells_file <- df
 
   #file_paths
-  labelPath <- system.file("extdata", "14plex_files/Labels.fld", package = "QuantQC")
-  pickupPath1 <-  system.file("extdata", "14plex_files/Pickup_mock.fld", package = "QuantQC")
+  if(plex == 14){
+    #File paths to pickup/label files
+
+    # 2plex
+    labelPath <- system.file("extdata", "14plex_files/Labels.fld", package = "QuantQC")
+    pickupPath1 <-  system.file("extdata", "14plex_files/Pickup_mock.fld", package = "QuantQC")
+
+  }
+  if(plex == 24){
+
+    # 3plex
+    labelPath <- system.file("extdata", "24plex_files/Labels.fld", package = "QuantQC")
+    pickupPath1 <-  system.file("extdata", "24plex_files/Pickup_mock.fld", package = "QuantQC")
+  }
 
 
   cells_file[grepl("Transmission",cells_file$X),]$X <- NA
@@ -277,7 +289,35 @@ analyzeCellenONE_TMT <- function(cells_file){
 
   # Assigning TMT tags to wells where label was picked up out of during prep
   # Each tag was dispensed multiple times so maps to multiple wells of plate
-  cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 4))
+  if(plex == 14){
+    cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 4))
+
+  }
+  if(plex == 24){
+
+    labs_map <- c('Reporter.intensity.4', 'Reporter.intensity.5','Reporter.intensity.7',
+              'Reporter.intensity.6', 'Reporter.intensity.8','Reporter.intensity.10',
+              'Reporter.intensity.9', 'Reporter.intensity.11','Reporter.intensity.12',
+              'Reporter.intensity.13','Reporter.intensity.14','Reporter.intensity.15',
+              'Reporter.intensity.16','Reporter.intensity.17','Reporter.intensity.18',
+              'Reporter.intensity.19','Reporter.intensity.20','Reporter.intensity.21',
+              'Reporter.intensity.22','Reporter.intensity.23','Reporter.intensity.24',
+              'Reporter.intensity.25','Reporter.intensity.26','Reporter.intensity.27')
+
+    cellenOne_data$label <- as.numeric(cellenOne_data$label)
+    cellenOne_data$label_new <- NA
+    for(i in 1:24){
+      cellenOne_data$label_new[cellenOne_data$label == i] <- labs_map[i]
+
+    }
+    cellenOne_data$label <- cellenOne_data$label_new
+    cellenOne_data$label_new <- NULL
+
+    #cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 3))
+
+
+
+  }
 
   # only one plate TMT
   cellenOne_data$plate <- 1

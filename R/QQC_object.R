@@ -62,11 +62,19 @@ matricies_DIA <- setClass(
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-MQ_to_QQC <- function(data_path,linker,PIF_in,PEP_in){
+MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
+
   linker <- read.csv(linker)
 
+  if(plex == 14){
+    RI_numb = 18
+  }
+  if(plex == 24){
+    RI_numb = 27
+  }
+
   columns_to_read <- c('Modified sequence','Intensity','Retention time','Charge','Raw file','PEP','PIF', 'Leading razor protein',
-                       'Potential contaminant','Reverse', paste0("Reporter intensity ",1:18))
+                       'Potential contaminant','Reverse', paste0("Reporter intensity ",1:RI_numb))
 
   # Read in file
 
@@ -140,7 +148,7 @@ MQ_to_QQC <- function(data_path,linker,PIF_in,PEP_in){
 
 
 
-  QQC <- new('QQC',raw_data = data, meta.data = linker ,ms_type = 'DDA')
+  QQC <- new('QQC',raw_data = data, meta.data = linker ,ms_type = 'DDA', misc = list(plex = plex))
 
 
   return(QQC)

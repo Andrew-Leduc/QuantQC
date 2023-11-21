@@ -34,10 +34,13 @@ Gen_QQC_report_DDA <- function(ms_type,data_path, linker_path, isolation1, isola
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-Gen_QQC_report_DIA <- function(data_path, linker_path, isolation, prot_vis_umap = NULL, output_path = "output_report.html", ChQ = .1) {
+Gen_QQC_report_DIA <- function(data_path, linker_path, isolation, prot_vis_umap = NULL, output_path = "output_report.html", ChQ = .1,
+                               plex_exp = 3,carrier_used = F) {
 
   # Set up parameters for the report
-  param_vals <- list(data_path = data_path, linker_path = linker_path, isolation = isolation, prot_vis_umap = prot_vis_umap, ChQ = ChQ)
+  param_vals <- list(data_path = data_path, linker_path = linker_path, isolation = isolation,
+                     prot_vis_umap = prot_vis_umap, ChQ = ChQ,plex_exp = plex_exp,
+                     carrier_used = carrier_used)
 
 
   # Generate the report using knitr

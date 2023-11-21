@@ -39,19 +39,39 @@ cellXpeptide <- function(QQC, TQVal = 1, chQVal = 1){
 #' @export
 TMT_Reference_channel_norm <- function(QQC){
 
+  plex <- QQC@misc[['plex']]
+
   sc.data <- QQC@raw_data
 
-  ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:18))
+  if(plex == 14){
+    ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:18))
+  }
+  if(plex == 24){
+    ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:27))
+  }
+
 
 
   sc.data[, ri.index] <- sc.data[, ri.index] / sc.data[, ri.index[1]]
 
   sc.data <- as.data.table(sc.data)
 
-  sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",5:18))]
+  if(plex == 14){
+    sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",5:18))]
+  }
+  if(plex == 24){
+    sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",4:27))]
+  }
+
   sc.data <- data.table::melt(sc.data, id = c('seqcharge','Leading.razor.protein','Raw.file','Well','plate'))
 
-  sc.data <- sc.data[sc.data$value < 2.5,]
+  if(plex == 14){
+    sc.data <- sc.data[sc.data$value < 2.5,]
+  }
+  if(plex == 24){
+    sc.data <- sc.data[sc.data$value < 10,]
+  }
+
   sc.data$ID <- paste0(sc.data$Well,sc.data$plate,sc.data$variable)
 
   sc.data <- data.table::dcast(sc.data,Leading.razor.protein+seqcharge~ID,value.var = 'value')
@@ -114,7 +134,7 @@ cellXpeptide_DIA <- function(QQC,TQVal, chQVal){
 
   Raw_data <- Raw_data %>% filter(plex %in% plex_used)
   Raw_data_filt <- Raw_data %>% filter(Channel.Q.Value < chQVal)
-  Raw_data_filt <- Raw_data %>% filter(Translated.Q.Value < TQVal)
+  Raw_data_filt <- Raw_data_filt %>% filter(Translated.Q.Value < TQVal)
 
   Raw_data_lim_filt <- Raw_data_filt %>% dplyr::select(Protein.Group,seqcharge,Ms1.Area,File.Name)
   Raw_data_lim.d_filt <- reshape2::dcast(Raw_data_lim_filt,Protein.Group+seqcharge~File.Name,value.var = 'Ms1.Area')
@@ -451,7 +471,7 @@ Normalize_reference_vector_log <- function(dat){
 CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
   sc.data <- QQC@matricies@peptide
-  sc.data_mask <- QQC@matricies@peptide_mask
+
 
   # This function colapses peptide level data to the protein level
   # There are different ways to collapse peptides mapping from the same

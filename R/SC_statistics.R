@@ -1,71 +1,5 @@
-### CV and cell filtering
 
 
-#' Add two numbers.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
-
-CVs <- function(QQC,thresh){
-  cell_id <- QQC@meta.data
-  # Normalize peptide data
-  mat_norm <- Normalize_reference_vector(QQC@matricies@peptide)
-
-  mat_norm <- as.data.frame(mat_norm)
-  mat_norm$Protein <- QQC@matricies@peptide_protein_map$Protein
-  mat_norm$pep <- QQC@matricies@peptide_protein_map$seqcharge
-
-  # convert to data.table for fast computation
-  mat_norm <- as.data.table(mat_norm)
-
-  # Melt data frame
-  mat_norm.melt <- data.table::melt(mat_norm, id = c('Protein','pep'))
-
-
-  # Call the function on the data.table
-  CV_mat <- fast_cv(mat_norm.melt)
-
-  # Revert back to DF
-  CV_mat <- as.data.frame(CV_mat)
-  CV_mat$value <- NULL
-
-  # count number for protein with multiple peptides in each cell
-  CV_mat_count <- CV_mat %>%
-    dplyr::group_by(variable) %>%
-    dplyr::summarise(counter = sum(is.na(cvq)==F))
-
-
-  # only look at cells with atleast 20 proteins with multiple peptides
-  CV_mat_count <- CV_mat_count %>% filter(counter > 20)
-
-
-  # Take median protein CV per cell
-  CV_mat <- CV_mat %>%
-    dplyr::group_by( variable) %>%
-    dplyr::summarise(cvq = median(cvq,na.rm = T))
-
-  CV_mat <- CV_mat %>% filter(variable %in% CV_mat_count$variable)
-
-
-  # store values from cells, not negative ctrls
-  pos <- cell_id %>% filter(sample != 'neg')
-
-  CV_mat$value <- NA
-  CV_mat$value[CV_mat$variable %in% pos$ID] <- 'cell'
-  CV_mat$value[!CV_mat$variable %in% pos$ID] <- 'neg'
-
-  CV_mat_pos <- CV_mat %>% filter(value == 'cell')
-  CV_mat_neg <- CV_mat %>% filter(value == 'neg')
-
-  return(CV_mat)
-
-}
 
 
 
@@ -263,7 +197,7 @@ PlotPepCor <- function(QQC,type = 'box'){
 inSet_completness <- function(Raw_data, cellenOne_meta){
   count = 0
   for(i in unique(paste0(cellenONE_meta$injectWell,cellenONE_meta$plate))){
-    i
+
     Data_inset <- as.data.frame(Raw_cell_mat)[,which(grepl(i,colnames(Raw_cell_mat)))]
 
     Data_inset <- Data_inset[which(is.na(rowMeans(Data_inset,na.rm = T))==F),]
@@ -290,105 +224,6 @@ inSet_completness <- function(Raw_data, cellenOne_meta){
 
 
 
-#' Add two numbers.
-#'
-#' This function takes two numeric inputs and returns their sum.
-#'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
-#' @export
-Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
-  #sc.data <- Raw_cell_mat
-
-
-
-  # Get IDs for negative controls
-  negative_IDs <- cellenONE_meta$ID[cellenONE_meta$sample == 'neg']
-
-
-  # If negative control has 0 peptides detected, it will be left out of sc.data,
-  # find negative controls with 0 peptides detected so 0s can be included on plot
-
-  numb_neg_controls <- length(intersect(negative_IDs,colnames(sc.data)))
-
-
-  #If negative controls are not all 0 peptides and there are more than 2, count number peptides for non 0 negative controls
-  if(numb_neg_controls > 1){
-
-    # Data matrix for negative controls
-
-    neg_mat <- sc.data[,negative_IDs]
-
-    # Count number peptides in each negative control
-    sum_neg <- colSums(is.na(neg_mat)==F)
-    sum_neg_int <- colSums(neg_mat,na.rm = T)
-    # Make data frame for plotting
-    neg_df <- as.data.frame(sum_neg)
-    colnames(neg_df) <- 'Number_precursors'
-    neg_df$intense <- sum_neg_int
-    neg_df$type <- 'negative ctrl'
-
-
-
-    # # Add in 0s for any negative controls with 0 peptides
-    # if(zero_peptide_negs != 0 ){
-    #   for(i in 1:zero_peptide_negs){
-    #     neg_df[nrow(neg_df) + 1,] = c(0,0,"negative ctrl")
-    #   }
-    # }
-
-
-  }else if(numb_neg_controls == 1){
-    # If the negative controls all have 0 peptides measured
-    neg_vect <- sc.data[,negative_IDs]
-
-    # Make data frame for plotting
-    neg_df <- as.data.frame(matrix(data = 0,ncol = 1,nrow = length(negative_IDs)))
-    colnames(neg_df) <- 'Number_precursors'
-    neg_df$intense <- sum(is.na(neg_vect)==F)
-    neg_df$type <- 'negative ctrl'
-
-  }else{
-    # Make data frame for plotting
-    neg_df <- as.data.frame(matrix(data = 0,ncol = 1,nrow = length(negative_IDs)))
-    colnames(neg_df) <- 'Number_precursors'
-    neg_df$intense <- 0
-    neg_df$type <- 'negative ctrl'
-  }
-
-
-
-  if(is.null(good_cells)==F){
-    # Filter for single cells that passed CV test (for pSCoPE data ONLY)
-    sum_cell <- sc.data[,colnames(sc.data) %in% good_cells$variable]
-
-  }else{
-
-    # for DIA its all non zero single cells
-    good_cells <- cellenONE_meta %>% filter(sample != 'neg')
-    sum_cell <- sc.data[,colnames(sc.data) %in% (good_cells$ID)]
-  }
-
-  # Sum number peptides for all real cells
-  sum_cell_id <- colSums(is.na(sum_cell)==F)
-  sum_cell_intense <- colSums(sum_cell,na.rm = T)
-
-  # Make cell count data frame for plotting
-  pos_df <- as.data.frame(sum_cell_id)
-  colnames(pos_df) <- 'Number_precursors'
-  pos_df$intense <-  sum_cell_intense
-  pos_df$type <- 'single cells'
-
-  # Combind positive and negative control data frames
-  neg_vs_pos_DF <- rbind(pos_df,neg_df)
-
-  return(neg_vs_pos_DF)
-}
-
-
 
 
 
@@ -410,16 +245,33 @@ PlotProtAndPep <- function(QQC){
   numb_pep <- as.data.frame(numb_pep)
   colnames(numb_pep) <- 'Number_precursors'
 
+
+
+
   # count protein numbers
   numb_prot <- colSums(is.na(QQC@matricies@protein)==F)
   numb_prot <- as.data.frame(numb_prot)
   colnames(numb_prot) <- 'Number_proteins'
 
+
+
   # Plot peptide and protein numbers
   if(QQC@ms_type == 'DDA'){
-    pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
+    numb_pep$ID <- colnames(QQC@matricies@peptide)
+    numb_prot$ID <- colnames(QQC@matricies@protein)
+    numb_pep <- numb_pep %>% left_join(QQC@meta.data, by = c('ID'))
+    numb_prot <- numb_prot %>% left_join(QQC@meta.data, by = c('ID'))
 
-    prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
+    #pep_number <- ggplot(numb_pep, aes(y = Number_precursors, x = sample)) + geom_boxplot() + ggtitle('# precursors per sample') + rremove('legend')+ylab('# Peptides')+dot_plot + ylim(c((min(numb_pep$Number_precursors)-300)),(max(numb_pep$Number_precursors)+300))
+
+    #prot_number<- ggplot(numb_prot, aes(y = Number_proteins, x = sample)) + geom_boxplot() + ggtitle('# proteins per sample') + ylab('# Proteins')+dot_plot + ylim(c((min(numb_prot$Number_proteins)-200)),(max(numb_prot$Number_proteins)+200))
+
+
+
+    pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 15) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot + xlim(c((min(numb_pep$Number_precursors)-300)),(max(numb_pep$Number_precursors)+300))
+
+    prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 15) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot + xlim(c((min(numb_prot$Number_proteins)-200)),(max(numb_prot$Number_proteins)+200))
+
 
     return(pep_number+prot_number)
   }
@@ -434,7 +286,7 @@ PlotProtAndPep <- function(QQC){
 
     numb_pep <- rbind(numb_pep,numb_pep_NF)
 
-    # count protein numbers
+    # # count protein numbers
     numb_prot_NF <- colSums(QQC@matricies@protein_mask==T)
     numb_prot_NF <- as.data.frame(numb_prot_NF)
     colnames(numb_prot_NF) <- 'Number_proteins'
@@ -445,7 +297,7 @@ PlotProtAndPep <- function(QQC){
 
     pep_number <- ggplot(numb_pep, aes(x = Number_precursors, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
 
-    prot_number<- ggplot(numb_prot, aes(x = Number_proteins, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
+    prot_number<- ggplot(numb_prot, aes(x = Number_proteins,fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
 
 
     return(pep_number+prot_number)
@@ -569,9 +421,9 @@ PlotSCtoCarrierRatio <- function(QQC){
 
     sc.data <- sc.data %>% dplyr::left_join(cellenOne_meta, by = c('ID'))
 
-    sc.data$value <- 1/sc.data$value
+    sc.data$value <- log10(sc.data$value)#1/sc.data$value
 
-    do_plot <- ggplot(sc.data, aes(x = sample, y = value)) + geom_boxplot() + ylab('# cells / carrier amount') +dot_plot
+    do_plot <- ggplot(sc.data, aes(x = sample, y = value)) + geom_boxplot() + ylab('Single cells / Carrier') +dot_plot
 
   }
 
@@ -1022,8 +874,6 @@ PlotMS1vMS2 <- function(QQC){
 
 
 }
-
-
 
 
 
