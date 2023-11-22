@@ -558,7 +558,7 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
 
   if(type == 'sample'){
     plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = sample)) +
-      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Vol.) cubic uM')+
+      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intensity)')+ xlab('log2(Vol.) cubic uM')+
       dot_plot
 
     return(plot_)
@@ -571,7 +571,7 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
     meta$prot_total2 <- meta$prot_total - meta$Order*reg_ord[2]
 
     plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = Order)) +
-      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intens)')+ xlab('log2(Vol.) cubic uM')+
+      geom_point() + ggtitle(title_text)+ ylab('log2(Sum cell intensity)')+ xlab('log2(Vol.) cubic uM')+
       scale_color_gradient2(midpoint = median(meta$Order,na.rm = T), low = 'blue',mid = 'white', high = 'red')+
       dot_plot
 

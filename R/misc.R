@@ -7,8 +7,9 @@ my_col3 <- c("purple2","black")
 dot_plot <-  theme_bw()+theme(plot.title = element_text(hjust = .5,size = 22),
                               axis.title.x = element_text(size = 18),
                               axis.title.y = element_text(size = 18),
-                              axis.text.x = element_text(size = 12),
-                              axis.text.y = element_text(size = 12))
+                              axis.text.x = element_text(size = 16),
+                              axis.text.y = element_text(size = 16),
+                              legend.text = element_text(size = 18))
 
 um_plot <-  theme_classic()+theme(plot.title = element_text(hjust = .5,size = 22),
                               axis.title.x = element_text(size = 18),

@@ -70,7 +70,9 @@ PlotRTDrift(QQC_obj_Exp)
 ## Single Cell Statistics
 
 
-### Negative control vs real cell statistics
+### Negative control / single cell comparison
+
+Here we plot the summed intensities across all peptides from a given single cell, for all single cells and negative controls in the data.
 ```{r negative_ctrl ,echo=FALSE, fig.width = 11, fig.height = 4.5,warning=FALSE,message=FALSE}
 
 QQC_obj_Exp <- EvaluateNegativeControls(QQC_obj_Exp)
@@ -94,6 +96,8 @@ PlotSCtoCarrierRatio(QQC_obj_Exp)
 
 
 ### Protein and peptide numbers per cell
+
+All the peptides plotted are identified at 1% global FDR. 
 
 ```{r Collapse and count, echo=FALSE,fig.width = 11, fig.height = 4.5,warning=FALSE,message=FALSE}
 
@@ -130,11 +134,13 @@ PlotPepCor(QQC_obj_Exp)
 
 ### Cell size information
 
+
+
 ```{r cell size info, echo=FALSE,fig.width = 7, fig.height = 4.5}
 
 #Compute correlations between peptides mapping to same protein
 
-PlotCellSizeVsIntensity(QQC_obj_Exp, type = 'Run order')
+PlotCellSizeVsIntensity(QQC_obj_Exp, type = 'sample')
 
 ```
 
@@ -215,6 +221,8 @@ if(is.null(params$prot_vis_umap)==F){
 
 
 ## CellenONE_info
+
+The well position each set is transported into is overlayed in the middle of the cluster of cells that compose a labeled set.
 
 ### Cell type positions across slide
 ```{r, echo=FALSE,fig.width = 15, fig.height = 10}

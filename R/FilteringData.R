@@ -260,8 +260,8 @@ PlotNegCtrl <- function(QQC,CV_thresh){
 
     #peps <- ggplot(plot_data, aes(x = Number_precursors, fill = type)) + geom_histogram(position = 'identity', alpha = .5) + ggtitle(paste0('precursors per cell')) + ylab('# of samples')+dot_plot
 
-    peps <- ggplot(plot_data, aes( x = log10(intense), fill = type)) + geom_histogram(position = 'identity',alpha = .5) + ggtitle(paste0('Negative ctrl Vs Single cells')) + ylab('# of samples')+dot_plot+
-      xlab('log10(Intensity)')
+    peps <- ggplot(plot_data, aes( x = log10(intense), fill = type)) + geom_histogram(position = 'identity',alpha = .5)  + ylab('# of samples')+dot_plot+
+      xlab('sum(log10(Intensity))')
 
     CV_mat_pos <- plot_data %>% filter(value == 'cell')
     CV_mat_neg <- plot_data %>% filter(value == 'neg')

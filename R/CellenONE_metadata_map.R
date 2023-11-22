@@ -599,7 +599,13 @@ PlotSlideLayout_celltype <- function(QQC){
     geom_point(aes(x = dropXPos,y = dropYPos,color = sample)) +
     geom_text(aes(x = pickupXPos_numb,y = pickupYPos_numb,label = injectWell,size = 5),hjust= .5, vjust=-.6) +
     facet_wrap(~field,ncol = 4)+
-    scale_y_reverse()
+    scale_y_reverse()+
+    theme(plot.title = element_text(hjust = .5,size = 22),
+          axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          axis.text.x = element_text(size = 18),
+          axis.text.y = element_text(size = 18),
+          legend.text = element_text(size = 20))
 
 }
 
@@ -618,6 +624,12 @@ PlotSlideLayout_label <- function(QQC){
 
   # print the mTRAQ labels overlayed on the positions of the slide
   ggplot(QQC@cellenONE.meta, aes(x = dropXPos,y = dropYPos,color = label)) +
-    geom_point() +scale_y_reverse()+ facet_wrap(~field,ncol = 4)
+    geom_point() +scale_y_reverse()+ facet_wrap(~field,ncol = 4)+
+    theme(plot.title = element_text(hjust = .5,size = 22),
+          axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          axis.text.x = element_text(size = 18),
+          axis.text.y = element_text(size = 18),
+          legend.text = element_text(size = 20))
 
 }
