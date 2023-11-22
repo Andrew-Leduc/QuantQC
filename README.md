@@ -9,7 +9,7 @@
 
 &nbsp;
 
-![alt text](https://github.com/Andrew-Leduc/QuantQC/img/head.png?raw=true)
+![alt text](https://github.com/Andrew-Leduc/QuantQC/blob/main/img/head.png?raw=true)
 
 
 
