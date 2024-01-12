@@ -15,7 +15,9 @@ QQC <- setClass(
     pep.cor = 'list',
     neg_ctrl.info = 'data.frame',
     reductions = 'list',
-    misc = 'list'
+    misc = 'list',
+
+    miceotopes = 'ANY'
 
 
   )
@@ -45,6 +47,23 @@ matricies_DIA <- setClass(
     protein_mask = 'matrix',
     #protein_filt.MS2 = 'matrix',
     protein.imputed = 'matrix',
+    peptide_protein_map = 'data.frame'
+
+
+  )
+)
+
+matricies_Miceotopes <- setClass(
+  Class = 'matricies_Miceotopes',
+  slots = c(
+
+    HovL_pep = 'matrix',
+    Beta_pep = 'matrix',
+    Alpha_pep = 'matrix',
+    HovL_prot = 'matrix',
+    Beta_prot = 'matrix',
+    Alpha_prot = 'matrix',
+
     peptide_protein_map = 'data.frame'
 
 
@@ -212,3 +231,11 @@ DIANN_to_QQC <- function(path,linker_path,plex,carrier = F){
   return(QQC)
 
 }
+
+
+
+
+
+
+
+

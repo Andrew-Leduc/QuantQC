@@ -470,7 +470,7 @@ Normalize_reference_vector_log <- function(dat){
 #' @export
 CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
-  sc.data <- QQC@matricies@peptide
+  sc.data <- QQC@matricies@peptide#QQC@matricies@peptide
 
 
   # This function colapses peptide level data to the protein level
@@ -623,7 +623,6 @@ BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
   # Get meta data for batch correction
   batch_label  <- cellenONE_meta %>% dplyr::filter(ID %in% colnames(protein_mat_imputed))
   batch_label <- batch_label[order(match(batch_label$ID,colnames(protein_mat_imputed))),]
-
 
 
 

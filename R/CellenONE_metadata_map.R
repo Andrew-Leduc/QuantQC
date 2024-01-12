@@ -335,8 +335,7 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
 
 
 analyzeCellenONE_mTRAQ <- function(cells_file,plex){
-  #plex = 3
-  #cells_file = all_cells
+
 
   for(i in 1:length(cells_file)){
     df1 <- read.delim(cells_file[[i]])
@@ -360,8 +359,8 @@ analyzeCellenONE_mTRAQ <- function(cells_file,plex){
 
     # 2plex
     labelPath <- system.file("extdata", "2plex_files/Labels.fld", package = "QuantQC")
-    pickupPath1 <- system.file("extdata", "2plex_files/Pickup_mock_1.fld", package = "QuantQC")
-    pickupPath2 <- system.file("extdata", "2plex_files/Pickup_mock_2.fld", package = "QuantQC")
+    pickupPath1 <- system.file("extdata", "2plex_files/Pickup_1_mock.fld", package = "QuantQC")
+    pickupPath2 <- system.file("extdata", "2plex_files/Pickup_2_mock.fld", package = "QuantQC")
 
   }
   if(plex == 3){

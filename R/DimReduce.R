@@ -120,6 +120,7 @@ ComputeUMAP <- function(QQC){
   um_plot$cluster <- prot_umap@meta.data[["RNA_snn_res.0.5"]]
   um_plot$lab <- scx$label
   um_plot$prot_total <- scx$prot_total
+  um_plot$Order <- scx$Order
 
 
 
@@ -165,6 +166,8 @@ PlotUMAP <- function(QQC, by = 'Cluster'){
   }
 
   if(by == 'Run order'){
+    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = Order)) + geom_point()+
+      um_plot+ scale_color_gradient2(midpoint = median(UMAP_plot$Order), low = 'blue',mid = 'white', high = 'red')
 
   }
 
