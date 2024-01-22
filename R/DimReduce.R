@@ -104,11 +104,11 @@ ComputeUMAP <- function(QQC){
 
   prot_umap <- CreateSeuratObject(counts = protein_Data, project = "prot_mat")
   prot_umap <- NormalizeData(prot_umap, normalization.method = "LogNormalize", scale.factor = 10000)
-  prot_umap@assays$RNA@scale.data <- protein_Data
+  prot_umap@assays$RNA@layers$data <- protein_Data
 
   all.genes <- rownames(protein_Data)
   prot_umap <- ScaleData(prot_umap, features = all.genes)
-  prot_umap@assays$RNA@scale.data <- protein_Data
+  prot_umap@assays$RNA@layers$data <- protein_Data
   prot_umap <- Seurat::RunPCA(prot_umap, features = all.genes)
   prot_umap <- FindNeighbors(prot_umap, dims = 1:6)
   prot_umap <- FindClusters(prot_umap, resolution = 0.5)
@@ -121,6 +121,7 @@ ComputeUMAP <- function(QQC){
   um_plot$lab <- scx$label
   um_plot$prot_total <- scx$prot_total
   um_plot$Order <- scx$Order
+  um_plot$diameter <- scx$diameter
 
 
 
@@ -147,27 +148,33 @@ PlotUMAP <- function(QQC, by = 'Cluster'){
   UMAP_plot <- QQC@reductions[['UMAP']]
 
   if(by == 'Cluster'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = cluster)) + geom_point()+
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = cluster)) + geom_point()+
       um_plot
   }
 
   if(by == 'Condition'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = sample)) + geom_point()+
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = sample)) + geom_point()+
       um_plot
   }
   if(by == 'Total protein'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = prot_total)) + geom_point()+
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = prot_total)) + geom_point()+
       um_plot + scale_color_gradient2(midpoint = median(UMAP_plot$prot_total), low = 'blue',mid = 'white', high = 'red')
   }
 
   if(by == 'Label'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = lab)) + geom_point()+
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = lab)) + geom_point()+
       um_plot
   }
 
   if(by == 'Run order'){
-    umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = Order)) + geom_point()+
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = Order)) + geom_point()+
       um_plot+ scale_color_gradient2(midpoint = median(UMAP_plot$Order), low = 'blue',mid = 'white', high = 'red')
+
+  }
+
+  if(by == 'Diameter'){
+    umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = diameter)) + geom_point()+
+      um_plot+ scale_color_gradient2(midpoint = mean(UMAP_plot$diameter), low = 'blue',mid = 'white', high = 'red')
 
   }
 
@@ -197,9 +204,24 @@ FeatureUMAP <- function(QQC, prot = NA, imputed = T){
 
   UMAP_plot$protein <- prot_mat[prot,]
 
-  umap_plot <- ggplot(UMAP_plot, aes(x = UMAP_1, y = UMAP_2, color = protein)) + geom_point()+
+  umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = protein)) + geom_point()+
       dot_plot + scale_color_gradient2(midpoint = 0, low = 'blue',mid = 'white', high = 'red')
 
+
+
+  umap_plot
+
+}
+
+FeatureUMAP_abs <- function(QQC, prot = NA){
+  UMAP_plot <- QQC@reductions[['UMAP']]
+
+  prot_mat <- QQC@matricies@protein_abs
+
+  UMAP_plot$protein <- prot_mat[prot,]
+
+  umap_plot <- ggplot(UMAP_plot, aes(x = umap_1, y = umap_2, color = log2(protein))) + geom_point()+
+    dot_plot + scale_color_gradient2(midpoint = median(log2(UMAP_plot$protein),na.rm = T), low = 'blue',mid = 'white', high = 'red')
 
 
   umap_plot

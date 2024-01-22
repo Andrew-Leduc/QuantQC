@@ -262,7 +262,7 @@ Mice_DimPlot_turnover <-function(QQC, reuct = 'PCA', by = 'Total'){
       reduct <- QQC@reductions[['UMAP']]
       reduct$ID <- rownames(reduct)
       reduct <- reduct %>% left_join(meta, by = c('ID'))
-      dim_plot <- ggplot(reduct,aes(x = UMAP_1, y = UMAP_2,color = Turnover_all)) + geom_point()+
+      dim_plot <- ggplot(reduct,aes(x = umap_1, y = umap_2,color = Turnover_all)) + geom_point()+
         um_plot + scale_color_gradient2(midpoint = median(reduct$Turnover_all), low = 'blue',mid = 'white', high = 'red')
 
 
@@ -290,7 +290,7 @@ Mice_DimPlot_turnover <-function(QQC, reuct = 'PCA', by = 'Total'){
       reduct <-QQC@reductions[['UMAP']]
       reduct$ID <- rownames(reduct)
       reduct <- reduct %>% left_join(Prot_turnover_df, by = c('ID'))
-      dim_plot <- ggplot(reduct,aes(x = UMAP_1, y = UMAP_2,color = log2(Prot)))+ geom_point()+ggtitle(by)+
+      dim_plot <- ggplot(reduct,aes(x = umap_1, y = umap_2,color = log2(Prot)))+ geom_point()+ggtitle(by)+
         um_plot + scale_color_gradient2(midpoint = median(log2(reduct$Prot),na.rm = T), low = 'blue',mid = 'white', high = 'red')
     }
   }

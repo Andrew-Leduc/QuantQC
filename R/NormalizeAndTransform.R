@@ -43,11 +43,13 @@ TMT_Reference_channel_norm <- function(QQC){
 
   sc.data <- QQC@raw_data
 
+  sc.data <- sc.data %>% filter(Reporter.intensity.2 != 0)
+
   if(plex == 14){
     ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:18))
   }
-  if(plex == 24){
-    ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:27))
+  if(plex == 29){
+    ri.index<-which(colnames(sc.data)%in%paste0("Reporter.intensity.",2:32))
   }
 
 
@@ -59,8 +61,8 @@ TMT_Reference_channel_norm <- function(QQC){
   if(plex == 14){
     sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",5:18))]
   }
-  if(plex == 24){
-    sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",4:27))]
+  if(plex == 29){
+    sc.data <- sc.data[,c('seqcharge','Leading.razor.protein','Raw.file','Well','plate',paste0("Reporter.intensity.",4:32))]
   }
 
   sc.data <- data.table::melt(sc.data, id = c('seqcharge','Leading.razor.protein','Raw.file','Well','plate'))
@@ -68,8 +70,8 @@ TMT_Reference_channel_norm <- function(QQC){
   if(plex == 14){
     sc.data <- sc.data[sc.data$value < 2.5,]
   }
-  if(plex == 24){
-    sc.data <- sc.data[sc.data$value < 10,]
+  if(plex == 29){
+    #sc.data <- sc.data[sc.data$value < 10,]
   }
 
   sc.data$ID <- paste0(sc.data$Well,sc.data$plate,sc.data$variable)
@@ -78,7 +80,7 @@ TMT_Reference_channel_norm <- function(QQC){
 
 
   # Add in 0 peptides for negative controls that were totally filtered out
-  sc.data[sc.data==0] <- NA
+  #sc.data[sc.data==0] <- NA
 
   sc.data <- as.data.frame(sc.data)
 
@@ -471,6 +473,25 @@ Normalize_reference_vector_log <- function(dat){
 CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
   sc.data <- QQC@matricies@peptide#QQC@matricies@peptide
+
+
+  ## Store absolute abundances
+  Abs_peptide_data <- as.data.table(cbind(QQC@matricies@peptide_protein_map,sc.data))
+  Abs_peptide_data <- data.table::melt(Abs_peptide_data,id.vars = c('Protein','seqcharge'))
+  Abs_peptide_data$seqcharge <- NULL
+  Abs_peptide_data <- Abs_peptide_data[, lapply(.SD, median,na.rm = TRUE), by = c('Protein','variable')]
+
+  # Create Protein x Cell matrix
+
+  Abs_peptide_data <- data.table::dcast(Abs_peptide_data, Protein ~ variable, value.var = 'value')
+
+  Abs_peptide_data <- as.data.frame(Abs_peptide_data)
+  rownames(Abs_peptide_data) <- Abs_peptide_data$Protein
+  Abs_peptide_data$Protein <- NULL
+
+
+
+  QQC@matricies@protein_abs <- as.matrix(Abs_peptide_data)
 
 
   # This function colapses peptide level data to the protein level

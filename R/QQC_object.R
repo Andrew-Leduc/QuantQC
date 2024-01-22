@@ -46,6 +46,7 @@ matricies_DIA <- setClass(
     protein = 'matrix',
     protein_mask = 'matrix',
     #protein_filt.MS2 = 'matrix',
+    protein_abs = 'matrix',
     protein.imputed = 'matrix',
     peptide_protein_map = 'data.frame'
 
@@ -88,8 +89,8 @@ MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
   if(plex == 14){
     RI_numb = 18
   }
-  if(plex == 24){
-    RI_numb = 27
+  if(plex == 29){
+    RI_numb = 32
   }
 
   columns_to_read <- c('Modified sequence','Intensity','Retention time','Charge','Raw file','PEP','PIF', 'Leading razor protein',
@@ -185,7 +186,7 @@ MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-DIANN_to_QQC <- function(path,linker_path,plex,carrier = F){
+DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
   linker <- read.csv(linker_path)
   linker$Order <- 1:nrow(linker)
@@ -193,7 +194,31 @@ DIANN_to_QQC <- function(path,linker_path,plex,carrier = F){
   columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence',
                       'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
 
-  Raw_data <- data.table::fread(path,select = columns_to_read)
+  if(dir.exists(data_path) == F){
+    data <- data.table::fread(data_path,select = columns_to_read)
+  }
+
+  if(dir.exists(data_path)){
+
+    if(str_sub(data_path,-1) != '/'){
+      data_path <- paste0(data_path,'/')
+    }
+
+    raw_files <- list.files(data_path)
+    for(i in 1:length(raw_files)){
+      if(i == 1){
+        Raw_data <- data.table::fread(paste0(data_path,raw_files[i]),select = columns_to_read)
+      }
+      if(i > 1){
+        data_next <- data.table::fread(paste0(data_path,raw_files[i]),select = columns_to_read)
+        data_list <- list(Raw_data, data_next)
+        Raw_data <- data.table::rbindlist(data_list)
+      }
+    }
+  }
+
+
+  #Raw_data <- data.table::fread(data_path,select = columns_to_read)
 
   Raw_data <- as.data.frame(Raw_data)
 

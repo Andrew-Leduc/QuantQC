@@ -134,11 +134,11 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     pickupPath1 <-  system.file("extdata", "14plex_files/Pickup_mock.fld", package = "QuantQC")
 
   }
-  if(plex == 24){
+  if(plex == 29){
 
-    # 3plex
-    labelPath <- system.file("extdata", "24plex_files/Labels.fld", package = "QuantQC")
-    pickupPath1 <-  system.file("extdata", "24plex_files/Pickup_mock.fld", package = "QuantQC")
+    # 29plex
+    labelPath <- system.file("extdata", "29plex_files/Labels.fld", package = "QuantQC")
+    pickupPath1 <-  system.file("extdata", "29plex_files/Pickup_mock.fld", package = "QuantQC")
   }
 
 
@@ -216,6 +216,11 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
 
   label$yPos <- as.numeric(label$yPos)
   label$xPos <- as.numeric(label$xPos)
+  label$well[label$well == '1H1,'] <- '1G25,'
+  label$well[label$well == '1H2,'] <- '1G26,'
+  label$well[label$well == '1H3,'] <- '1G27,'
+  label$well[label$well == '1H4,'] <- '1G28,'
+  label$well[label$well == '1H5,'] <- '1G29,'
   label$well <- substring(label$well, 3)
   label$well <- as.numeric(gsub(",","",label$well))
   matchTMTSCP <- paste0("TMT", 1:length(unique(label$well)))
@@ -293,20 +298,22 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 4))
 
   }
-  if(plex == 24){
+  if(plex == 29){
 
-    labs_map <- c('Reporter.intensity.4', 'Reporter.intensity.5','Reporter.intensity.7',
-              'Reporter.intensity.6', 'Reporter.intensity.8','Reporter.intensity.10',
-              'Reporter.intensity.9', 'Reporter.intensity.11','Reporter.intensity.12',
+    labs_map <- c('Reporter.intensity.4', 'Reporter.intensity.5','Reporter.intensity.6',
+              'Reporter.intensity.7', 'Reporter.intensity.8','Reporter.intensity.9',
+              'Reporter.intensity.10', 'Reporter.intensity.11','Reporter.intensity.12',
               'Reporter.intensity.13','Reporter.intensity.14','Reporter.intensity.15',
               'Reporter.intensity.16','Reporter.intensity.17','Reporter.intensity.18',
               'Reporter.intensity.19','Reporter.intensity.20','Reporter.intensity.21',
               'Reporter.intensity.22','Reporter.intensity.23','Reporter.intensity.24',
-              'Reporter.intensity.25','Reporter.intensity.26','Reporter.intensity.27')
+              'Reporter.intensity.25','Reporter.intensity.26','Reporter.intensity.27',
+              'Reporter.intensity.28','Reporter.intensity.29','Reporter.intensity.30',
+              'Reporter.intensity.31','Reporter.intensity.32')
 
     cellenOne_data$label <- as.numeric(cellenOne_data$label)
     cellenOne_data$label_new <- NA
-    for(i in 1:24){
+    for(i in 1:29){
       cellenOne_data$label_new[cellenOne_data$label == i] <- labs_map[i]
 
     }
