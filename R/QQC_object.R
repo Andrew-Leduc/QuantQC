@@ -195,7 +195,7 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
                       'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
 
   if(dir.exists(data_path) == F){
-    data <- data.table::fread(data_path,select = columns_to_read)
+    Raw_data <- data.table::fread(data_path,select = columns_to_read)
   }
 
   if(dir.exists(data_path)){
