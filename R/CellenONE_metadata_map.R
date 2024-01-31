@@ -87,7 +87,7 @@ link_cellenONE_Raw <- function(QQC,cells_file){
 
   cellID$sample[is.na(cellID$sample)==T] <- 'neg'
 
-  cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
+  cellID$prot_total <- log2(colMedians(peptide_data[,1:ncol(peptide_data)],na.rm = T))
 
   QQC@cellenONE.meta <- cellenOne_data
 
@@ -275,6 +275,8 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
   isoLab_final <- isoLab_bound %>% left_join(pickup, by = 'xyft')
   wellCount <- isoLab_final %>% group_by(well.y) %>% dplyr::summarize(count=n())
 
+  isoLab_final$ImageFile <- str_sub(isoLab_final$ImageFile, end = -2)
+  isoLab_final$ImageFile <- str_sub(isoLab_final$ImageFile,12)
 
   ### Clean up to yield final dataframe
   cellenOne_data <- data.frame(sample = isoLab_final$condition, isoTime = isoLab_final$Time, diameter = isoLab_final$Diameter, elongation = isoLab_final$Elongation, slide = isoLab_final$Target, field = isoLab_final$Field, dropXPos = isoLab_final$XPos, dropYPos = isoLab_final$YPos, label = isoLab_final$well.x, pickupXPos = isoLab_final$pickupX, pickupYPos = isoLab_final$pickupY, injectWell = isoLab_final$well.y, picture = isoLab_final$ImageFile)

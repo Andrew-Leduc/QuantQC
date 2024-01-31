@@ -29,6 +29,7 @@ matricies_DDA <- setClass(
 
     peptide = 'matrix',
     protein = 'matrix',
+    protein_abs = 'matrix',
     protein.imputed = 'matrix',
     peptide_protein_map = 'data.frame'
 
