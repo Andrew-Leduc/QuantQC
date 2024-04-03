@@ -23,7 +23,7 @@ SharedPeptideCor <- function(QQC, res = 'sc'){
 
 
 
-  peptide_data <- Normalize_reference_vector(peptide_data,log = T)
+  #peptide_data <- Normalize_reference_vector(peptide_data,log = T)
 
   if(res == 'clust'){
 

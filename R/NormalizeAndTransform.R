@@ -407,6 +407,28 @@ KNN_impute<-function(QQC, k = 3){
 
 }
 
+
+
+MinValue_impute <- function(QQC){
+  prot_dat <- QQC@matricies@protein
+
+  for(i in 1:nrow(prot_dat)){
+    prot_vect <- prot_dat[i,]
+    prot_vect[is.na(prot_vect) == T] <- min(prot_vect,na.rm = T)
+    prot_dat[i,] <- prot_vect
+
+  }
+
+
+  QQC@matricies@protein.imputed <- (prot_dat)
+
+  return(QQC)
+
+
+}
+
+
+
 #' Add two numbers.
 #'
 #' This function takes two numeric inputs and returns their sum.
@@ -472,7 +494,7 @@ Normalize_reference_vector_log <- function(dat){
 #' @export
 CollapseToProtein <- function(QQC, opt, norm = 'ref'){
 
-  sc.data <- QQC@matricies@peptide#QQC@matricies@peptide
+  sc.data <- QQC@matricies@peptide
 
 
   ## Store absolute abundances
@@ -503,27 +525,32 @@ CollapseToProtein <- function(QQC, opt, norm = 'ref'){
   if(opt == 1){
 
     # Remove peptide protein name columns
-    Normalize_peptide_data <- as.matrix(sc.data)
-
-    # Normalize peptide data for cell size and then to relative abundances and log transform
-    if(norm == 'std'){
-      Normalize_peptide_data <- normalize(Normalize_peptide_data,log = T)
-    }
-    if(norm == 'ref'){
-      Normalize_peptide_data <- Normalize_reference_vector(Normalize_peptide_data,log = T)
-    }
+    # Normalize_peptide_data <- as.matrix(sc.data)
+    #
+    # # Normalize peptide data for cell size and then to relative abundances and log transform
+    # if(norm == 'std'){
+    #   Normalize_peptide_data <- normalize(Normalize_peptide_data,log = T)
+    # }
+    # if(norm == 'ref'){
+    #   Normalize_peptide_data <- Normalize_reference_vector(Normalize_peptide_data,log = T)
+    # }
 
 
 
     # Remove unwanted values
-    Normalize_peptide_data[Normalize_peptide_data == Inf] <- NA
-    Normalize_peptide_data[Normalize_peptide_data == -Inf] <- NA
+    #Normalize_peptide_data[Normalize_peptide_data == Inf] <- NA
+    #Normalize_peptide_data[Normalize_peptide_data == -Inf] <- NA
+
+    QQC <- LC_BatchCorrect(QQC)
+
+    Normalize_peptide_data <- QQC@matricies@peptide
+
 
     #Re-Join data
     Normalize_peptide_data <- as.data.table(cbind(QQC@matricies@peptide_protein_map,Normalize_peptide_data))
 
     # Remove peptides observed less than 10 times
-    Normalize_peptide_data <- Normalize_peptide_data[rowSums(is.na(Normalize_peptide_data)==F) > 9,]
+    Normalize_peptide_data <- Normalize_peptide_data[rowSums(is.na(Normalize_peptide_data)==F) > 3,]
 
 
     # Collapse peptide levels to median protein level, first melt, then collapse then expand back out
@@ -692,6 +719,71 @@ BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
 
 
 
+LC_BatchCorrect <- function(QQC){
+
+  pep_norm <- QQC@matricies@peptide
+  pep_norm <- QuantQC::normalize(pep_norm,log = T)
+  order_vect <- QQC@meta.data %>% filter(ID %in% colnames(QQC@matricies@peptide))
+
+  if(sum(order_vect$ID == colnames(pep_norm)) != ncol(pep_norm)){
+    return('something went wrong')
+  }
+
+  for(i in 1:nrow(pep_norm)){
+
+    set_df <- floor(sum(is.na(pep_norm[i,])==F)/11)
+    if(set_df > 20){
+      set_df <- 20
+    }
+    if(set_df == 0){
+      set_df <- 2
+    }
+    if(set_df == 1){
+      set_df <- 2
+    }
+
+    if(sum(is.na(pep_norm[i,])==F) > 9){
+
+
+      df_spline <- as.data.frame(order_vect$Order)
+      colnames(df_spline) <- 'order'
+      df_spline$data <- pep_norm[i,]
+      df_spline$holder <- 1:ncol(pep_norm)
+      df_spline <- df_spline %>% filter(is.na(data)==F)
+
+      smooth = stats::smooth.spline(df_spline$order,df_spline$data,df = set_df)
+      predicted_y <- predict(smooth,  df_spline$order)
+
+      RSS <- sum((df_spline$data - predicted_y$y)^2)
+
+      # Calculate total sum of squares (TSS)
+      TSS <- sum((df_spline$data - mean(predicted_y$y))^2)
+
+      # Calculate R-squared (R²)
+      R_squared <- 1 - (RSS / TSS)
+
+      if(R_squared > .1){
+
+        x = predicted_y$x
+        y = predicted_y$y
+        df <- as.data.frame(cbind(x,y))
+        df <- df[order(df$x),]
+
+        df_spline <- df_spline[order(df_spline$order),]
+        df_spline$data = df_spline$data-df$y
+
+        pep_norm[i,df_spline$holder] <- df_spline$data
+
+      }
+    }
+
+  }
+
+  QQC@matricies@peptide <- pep_norm
+
+  return(QQC)
+
+}
 
 
 

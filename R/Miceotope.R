@@ -50,7 +50,8 @@ PepCorMini <- function(peptide_data,peptide_protein_map){
 }
 
 
-Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1){
+Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1, t = 5){
+
 
   sc.data <- QQC@raw_data
 
@@ -71,9 +72,17 @@ Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1){
 
   mice_K <- sc.data %>% filter(pep_type == 'K')
   mice_R <- sc.data %>% filter(pep_type == 'R')
+
+  mice_K <- mice_K %>% filter(Run %in% mice_R$Run)
+  mice_R <- mice_R %>% filter(Run %in% mice_K$Run)
+
   mice_R$seqRun <- paste0(mice_R$seqcharge,mice_R$ID)
   mice_R <- mice_R %>% distinct(seqRun,.keep_all = T)
+
   mice_R$seqRun <- NULL
+
+
+
 
   mice_R <- reshape2::dcast(mice_R,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
   Prot_pep_mapR <- as.data.frame(cbind(mice_R$Protein.Group,mice_R$seqcharge))
@@ -119,7 +128,7 @@ Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1){
   #Prot_pep_mapK <- Prot_pep_mapK[sect_row,]
   mice_R <- mice_R[,sect_col]
 
-  mice_K_H_ov_L <- mice_K_H/mice_K_L
+
 
   mice_K_all <- mice_K_H+mice_K_L
 
@@ -130,17 +139,20 @@ Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1){
   QQC@matricies <- std_matricies
 
 
+  mice_K_H_ov_L <- mice_K_H/mice_K_L
 
-  mice_K_all <- QuantQC::normalize(mice_K_all)
+  mice_alpha <- -log(mice_K_L/(mice_K_H+mice_K_L))/t
 
-  mice_K_H <- mice_K_H/(mice_K_H+mice_K_L)
-  mice_K_L <- 1 - mice_K_H
+  #mice_K_all <- QuantQC::normalize(mice_K_all)
 
-  mice_K_H <- mice_K_all*mice_K_H
-  mice_K_L <- mice_K_all*mice_K_L
+  #mice_K_H <- mice_K_H/(mice_K_H+mice_K_L)
+  #mice_K_L <- 1 - mice_K_H
+  #mice_K_H <- mice_K_all*mice_K_H
+  #mice_K_L <- mice_K_all*mice_K_L
 
-  mice_alpha <- -log(mice_K_L/(mice_K_H+mice_K_L))/10
-  mice_beta <- (mice_K_H+mice_K_L)*mice_alpha
+  mice_beta <- mice_K_H*mice_alpha/(1-exp(-mice_alpha*t)) # Size adjusted translation rate
+
+  mice_beta <- QuantQC::normalize(mice_beta)
 
   miceotope_matricies <- new('matricies_Miceotopes',HovL_pep = as.matrix(mice_K_H_ov_L),Beta_pep = as.matrix(mice_beta),Alpha_pep = as.matrix(mice_alpha), peptide_protein_map=Prot_pep_mapK)
 

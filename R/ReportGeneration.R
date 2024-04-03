@@ -10,10 +10,10 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-Gen_QQC_report_DDA <- function(data_path, linker_path, plex,output_path = "output_report.html", isolation, CV_thresh = .4) {
+Gen_QQC_report_DDA <- function(data_path, linker_path, plex_exp,output_path = "output_report.html", isolation, CV_thresh = .4) {
 
     # Set up parameters for the report
-    file_paths <- list(data_path = data_path, linker_path = linker_path, plex = plex, isolation = isolation, CV_thresh = CV_thresh)
+    file_paths <- list(data_path = data_path, linker_path = linker_path, plex = plex_exp, isolation = isolation, CV_thresh = CV_thresh)
 
 
     # Generate the report using knitr

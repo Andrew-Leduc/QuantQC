@@ -88,6 +88,50 @@ PlotPCA <- function(QQC, by = 'Condition'){
 
 }
 
+
+
+
+#' Computes PCA
+#'
+#' This function takes a QQC object and computes PCA on the unimputed protein level data taking the eigen
+#' values of a correlation matrix computed off pairwise observations.
+#'
+#' @param QQC a QuantQC object
+#' @return A \code{QQC object} with the reductions slot containing a PCA data.frame in list
+#' @examples
+#' ComputePCA(TestSamples)
+#' @export
+FeaturePCA <- function(QQC, prot = NA, imputed = T){
+  PCA_plot <- QQC@reductions[['PCA']]
+
+  if(imputed == T){
+    prot_mat <- QQC@matricies@protein.imputed
+  }
+  if(imputed == F){
+    prot_mat <- QQC@matricies@protein
+  }
+
+  PCA_plot$protein <- prot_mat[prot,]
+
+  pca_plot <- ggplot(PCA_plot, aes(x = PC1, y = PC2, color = protein)) + geom_point()+
+    dot_plot + scale_color_gradient2(midpoint = 0, low = 'blue',mid = 'white', high = 'red')
+
+
+
+  pca_plot
+
+}
+
+
+
+
+
+
+
+
+
+
+
 #' Computes UMAP
 #'
 #' This function takes a QQC object and computes UMAP on the imputed protein level data with the UMAP function
@@ -213,6 +257,12 @@ FeatureUMAP <- function(QQC, prot = NA, imputed = T){
 
 }
 
+
+
+
+
+
+
 FeatureUMAP_abs <- function(QQC, prot = NA){
   UMAP_plot <- QQC@reductions[['UMAP']]
 
@@ -227,4 +277,28 @@ FeatureUMAP_abs <- function(QQC, prot = NA){
   umap_plot
 
 }
+
+
+
+ClustBoxPlot <- function(QQC, prot = NA, imputed = F){
+  UMAP_plot <- QQC@reductions[['UMAP']]
+
+  if(imputed == T){
+    prot_mat <- QQC@matricies@protein.imputed
+  }
+  if(imputed == F){
+    prot_mat <- QQC@matricies@protein
+  }
+
+  UMAP_plot$protein <- prot_mat[prot,]
+
+  box_plot <- ggplot(UMAP_plot, aes(x = cluster, y = protein,color = cluster)) + geom_boxplot()+
+    dot_plot
+
+
+
+  box_plot
+
+}
+
 

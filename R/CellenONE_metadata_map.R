@@ -87,7 +87,7 @@ link_cellenONE_Raw <- function(QQC,cells_file){
 
   cellID$sample[is.na(cellID$sample)==T] <- 'neg'
 
-  cellID$prot_total <- log2(colMedians(peptide_data[,1:ncol(peptide_data)],na.rm = T))
+  cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
 
   QQC@cellenONE.meta <- cellenOne_data
 
@@ -358,7 +358,10 @@ analyzeCellenONE_mTRAQ <- function(cells_file,plex){
 
   }
 
+  df <- df %>% filter(X != 'Green')
+  df <- df %>% filter(X != '0')
   cells_file <- df
+
 
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
@@ -588,6 +591,7 @@ analyzeCellenONE_mTRAQ <- function(cells_file,plex){
 
   return(cellenOne_data)
 }
+
 
 
 

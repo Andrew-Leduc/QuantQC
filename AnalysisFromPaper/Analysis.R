@@ -1,3 +1,12 @@
+library(QuantQC)
+library(ggpointdensity)
+library(viridis)
+library(ggpubr)
+library(dplyr)
+library(matrixStats)
+library(reshape2)
+library(stringr)
+
 
 # Function used
 # Compute total least squares fit
@@ -52,6 +61,20 @@ Proc_fasta <- function(path){
 
 
 
+## mTRAQ Labeling Eff test in single cells by pooled DDA Experiment
+
+mTRAQ_Lab <- read.delim('/Volumes/My Passport/LabTest/combined/txt/evidence.txt')
+mTRAQ_Lab <- mTRAQ_Lab %>% filter(Oxidation..M. == 0)
+mTRAQ_Lab <- mTRAQ_Lab %>% filter(Acetyl..Protein.N.term. == 0)
+
+# nTerm Labeling Eff = 99%
+sum(mTRAQ_Lab$Var_mTRAQ.Nter0,mTRAQ_Lab$Var_mTRAQ.Nter4,mTRAQ_Lab$Var_mTRAQ.Nter8)/nrow(mTRAQ_Lab)
+
+# Lyine labeling Eff = 90%
+sum(str_sub(mTRAQ_Lab$Sequence,-1) == 'K')/sum(mTRAQ_Lab$Var_mTRAQ.Lys0+mTRAQ_Lab$Var_mTRAQ.Lys4,mTRAQ_Lab$Var_mTRAQ.Lys8)
+
+
+
 # single cell proc
 ## ------------------------------------------------------------------------------------------------------------
 
@@ -66,16 +89,16 @@ library(QuantQC)
 ## Data files,  UPDATE FILE PATHS
 
 #searched SC data, find on massive repo
-data_path <- "/Users/andrewleduc/Desktop/app_note/report.tsv"
+data_path <- "/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/appnote/Searched_DDM/report.tsv"
 
 
 # link raw file name to well plate, find in folder
-linker_path <- "path/linker.csv"
+linker_path <- "~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/linker.csv"
 
 ## Read in cell isolation files from CellenONE and assign cell type, find in folder
-one <-"path/appnote/Monocyte.xls"
-two <- "path/PDAC.xls"
-three <- "path/Melanoma.xls"
+one <-"~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/Melanoma.xls"
+two <- "~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/PDAC.xls"
+three <- "~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/Monocyte.xls"
 
 all_cells <- list(Monocyte = one,
                   PDAC = two,
@@ -102,8 +125,6 @@ Gen_QQC_report_DIA(data_path = data_path,
 
 ######------------------------------------------------------------------------
 # Or you can run line by line just like seurat
-test <- read.delim(data_path)
-test <- test$Protein.Group
 
 
 #Generate nPOP object from raw data
@@ -149,9 +170,6 @@ PlotNegCtrl(AppNote)
 # filter bad cells based off above, put in log10 intensity
 AppNote <- FilterBadCells(AppNote, min_intens = 7)
 
-
-# Compute the size relative to the carrier of each cell
-PlotSCtoCarrierRatio(AppNote)
 
 
 # Plot cell size vs intensity in MS, options to color code by" "Run order" or "sample"
@@ -239,25 +257,20 @@ ggplot(df_prot_type, aes(x = Type, y = Number)) + dot_plot + geom_bar(stat = 'id
 ## ------------------------------------------------------------------------------------------------------------
 
 
-library(viridis)
-library(ggpointdensity)
-
 # Proteins with good peptide correlations single cell data
 Pos_pep_cor <- as.data.frame(AppNote@pep.cor)
 Pos_pep_cor <- Pos_pep_cor %>% filter(Cor > .2)
 
-
-
-LF <- read.delim('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-leduc.an@husky.neu.edu/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/appnote/LF/report_2.tsv')
+# Download data from massive repo
+LF <- read.delim('/path/report_2.tsv')
 LF_mat <- diann::diann_maxlfq(LF,group.header = "Protein.Group",quantity.header = "Ms1.Area")
-#sect <- intersect(rownames(LF_mat),Pos_pep_cor$Protein )
-LF_mat2 <- LF_mat#[sect,]
+sect <- intersect(rownames(LF_mat),Pos_pep_cor$Protein )
+LF_mat2 <- LF_mat[sect,]
 for(i in 1:ncol(LF_mat)){
   LF_mat2[,i]<-LF_mat2[,i]/median(LF_mat2[,i],na.rm = T)
 }
 
 colnames(LF_mat2) <- c('Monocyte_rep1','Monocyte_rep2','PDAC_rep1','PDAC_rep2','Melanoma_rep1','Melanoma_rep2')
-
 
 
 Monocyte <- (LF_mat2[,1]+LF_mat2[,2])/2
@@ -291,15 +304,15 @@ TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
 
 
 #searched SC data, find on massive repo
-data_path <- "/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/aleduc/TMT29/test/All_1p_FDR/evidence.txt" #
+data_path <- "path/evidence.txt"
 
-# link raw file name to well plate, find in folder
-linker_path <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/linker.csv"
+# link raw file name to well plate, find in the github repo /QuantQC/AnalysisFromPaper/pSCoPE/
+linker_path <- "/pSCoPE/linker.csv"
 
-## Read in cell isolation files from CellenONE and assign cell type, find in folder
-one <-"/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/Monocyte_isolated.xls"
-two <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/PDAC_isolated.xls"
-three <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/Melanoma_isolated.xls"
+# Read in cell isolation files from CellenONE and assign cell type, find in folder /QuantQC/AnalysisFromPaper/pSCoPE/
+one <-"/pSCoPE/Monocyte_isolated.xls"
+two <- "/pSCoPE/PDAC_isolated.xls"
+three <- "/pSCoPE/Melanoma_isolated.xls"
 
 all_cells <- list(Monocyte = one,
                   PDAC = two,
@@ -327,7 +340,7 @@ Gen_QQC_report_DDA(data_path = data_path,
 
 
 #Generate nPOP object from raw data
-AppNote <- MQ_to_QQC(data_path,linker_path, plex = 29,PIF_in = .9, PEP_in = .02)
+AppNote <- MQ_to_QQC(data_path,linker_path, plex = 29,PIF_in = .2, PEP_in = 1)
 
 
 # Normalize single cell runs to reference channel,
@@ -358,15 +371,15 @@ PlotRTDrift(AppNote)
 
 
 # Test negative controls, i.e. samples with no cell
-AppNote <- EvaluateNegativeControls(AppNote, CV_thresh = .42)
+AppNote <- EvaluateNegativeControls(AppNote)
 
 
 # Make the classic neg ctrl plots
-PlotNegCtrl(AppNote,CV_thresh = .32)
+PlotNegCtrl(AppNote,CV_thresh = .38)
 
 
 # filter bad cells based off above, put in log10 intensity
-AppNote <- FilterBadCells(AppNote, CV_thresh = .32)
+AppNote <- FilterBadCells(AppNote, CV_thresh = .38)
 
 
 
@@ -408,56 +421,63 @@ AppNote <- KNN_impute(AppNote)
 AppNote <- BatchCorrect(AppNote,run = T,labels = F)
 
 
-
 AppNote <- ComputePCA(AppNote,imputed = F)
 
 ## plot PCA options are "Run order" "Total protein" "Condition" "Label"
 PlotPCA(AppNote, by = "Condition")
-nrow(AppNote@reductions[['PCA']])
 
 ## also assigns louvain clusters
 AppNote <- ComputeUMAP(AppNote)
 
 ## plots by cluster
+PlotUMAP(AppNote)
 PlotUMAP(AppNote, by = 'Condition')
+FeatureUMAP(AppNote, prot = 'P09429')
 
 
-Bulk <- read.delim('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/aleduc/TMT29/Test_TMT/evidence.txt')
-Bulk <- Bulk %>% filter(Raw.file == "dAL_1k_bulk_T_45k")
+
+# Compare quant to bulk samples
+
+# Download form massive repo
+Bulk <- read.delim('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/aleduc/TMT29/Protocol_final_data/Bulk_TMT/evidence.txt')
+Bulk <- Bulk %>% filter(Raw.file != "dAL_1k_bulk_T_45k")
 Bulk <- Bulk %>% filter( PEP < .07)
 Bulk <- Bulk %>% filter( PIF > .7)
-
+Bulk <- Bulk %>% filter( Potential.contaminant != '+')
+Bulk <- Bulk %>% filter( Reverse != '+')
 Bulk$seqcharge <- paste0(Bulk$Sequence,Bulk$Charge)
 
 
+# Grab RIs from TMT labels used for bulk data
 bulk_samples <- c('Reporter.intensity.6','Reporter.intensity.7','Reporter.intensity.12','Reporter.intensity.13',
   'Reporter.intensity.15','Reporter.intensity.16')
 
-
 Bulk <- Bulk %>% select(Leading.razor.protein,any_of(bulk_samples))
 
+# Normalize for first for loading and then to relative levels then convert to log
+Bulk[,2:7] <- QuantQC::normalize(Bulk[,2:7], log = T)
 
-for(i in 2:ncol(Bulk)){
-  Bulk[,i] <- Bulk[,i]/median(Bulk[,i])
-}
-
-Bulk <- melt(Bulk, id.vars = 'Leading.razor.protein')
+# Collapse to protein level
+Bulk <- reshape2::melt(Bulk, id.vars = 'Leading.razor.protein')
 Bulk <- Bulk %>% group_by(Leading.razor.protein,variable) %>% summarise(value = median(value,na.rm=T))
-Bulk <- dcast(Bulk,Leading.razor.protein~variable, value.var = 'value')
+Bulk <- reshape2::dcast(Bulk,Leading.razor.protein~variable, value.var = 'value')
 
 Bulk$Leading.razor.protein <-  gsub(".*\\|([A-Za-z0-9]+)\\|.*", "\\1", Bulk$Leading.razor.protein)
 
 Bulk <- Bulk %>% distinct(Leading.razor.protein,.keep_all = T)
-
 rownames(Bulk) <- Bulk$Leading.razor.protein
 Bulk$Leading.razor.protein <- NULL
+Bulk <- as.matrix(Bulk)
 
-for(i in 1:ncol(Bulk)){
-  Bulk[,i] <- Bulk[,i]/median(Bulk[,i])
+# Final normalize to relative levels after protein collapse
+for(i in 1:nrow(Bulk)){
+  Bulk[i,] <- Bulk[i,] - mean(Bulk[i,],na.rm = T)
 }
 
 
 colnames(Bulk) <- c('Monocyte_rep1','PDAC_rep1','Monocyte_rep2','Melanoma_rep1','PDAC_rep2','Melanoma_rep2')
+write.csv(Bulk,'/Users/andrewleduc/Desktop/Figshare_Protocol/TMT_1000SPD/bulk.csv')
+
 
 sect <- intersect(rownames(Bulk), rownames(AppNote@matricies@protein))
 
@@ -482,13 +502,14 @@ Monocyte_sc <- rowMeans(AppNote@matricies@protein[sect,colnames(AppNote@matricie
 vect_sc <- Monocyte_sc-PDAC_sc
 df_plot <- as.data.frame(vect_sc)
 
-df_plot$vect_bulk <- log2(Monocyte/PDAC)
+df_plot$vect_bulk <- Monocyte - PDAC
 df_plot$vect_bulk[df_plot$vect_bulk==Inf] <- NA
 df_plot$vect_bulk[df_plot$vect_bulk==-Inf] <- NA
 
 rat1 <- ggplot(df_plot, aes(x = vect_bulk, y = vect_sc)) + geom_pointdensity() +
   scale_color_viridis() + dot_plot + xlab('Bulk TMT') + ylab('Single Cell')+
-  ggtitle('Log2(PDAC/Monocyte)') + rremove('legend') +ylim(c(-2.5,2.5)) + theme(plot.title = element_text(size = 14))
+  ggtitle('Log2(PDAC/Monocyte)') + rremove('legend') +ylim(c(-2.5,2.5)) + theme(plot.title = element_text(size = 14))+
+  geom_abline(intercept = 0, slope = TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]], col = "red")
 
 cor(df_plot$vect_sc,df_plot$vect_bulk,use = 'pairwise.complete.obs', method = 'pearson')
 TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
@@ -498,14 +519,15 @@ TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
 vect_sc <- Monocyte_sc-Melanoma_sc
 df_plot <- as.data.frame(vect_sc)
 
-df_plot$vect_bulk <- log2(Monocyte/Melanoma)
+df_plot$vect_bulk <- Monocyte-Melanoma
 df_plot$vect_bulk[df_plot$vect_bulk==Inf] <- NA
 df_plot$vect_bulk[df_plot$vect_bulk==-Inf] <- NA
 
 rat2 <- ggplot(df_plot, aes(x = vect_bulk, y = vect_sc)) + geom_pointdensity() +
   scale_color_viridis() + dot_plot + xlab('Bulk TMT') + ylab('Single Cell')+
   ggtitle('Log2(Melanoma/Monocyte)') + rremove('legend') +ylim(c(-2.5,2.5))+
-  theme(plot.title = element_text(size = 14))
+  theme(plot.title = element_text(size = 14))+
+  geom_abline(intercept = 0, slope = TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]], col = "red")
 
 cor(df_plot$vect_sc,df_plot$vect_bulk,use = 'pairwise.complete.obs', method = 'pearson')
 TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
@@ -515,29 +537,26 @@ TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
 vect_sc <- Melanoma_sc-PDAC_sc
 df_plot <- as.data.frame(vect_sc)
 
-df_plot$vect_bulk <- log2(Melanoma/PDAC)
+df_plot$vect_bulk <- Melanoma-PDAC
 df_plot$vect_bulk[df_plot$vect_bulk==Inf] <- NA
 df_plot$vect_bulk[df_plot$vect_bulk==-Inf] <- NA
 
 rat3 <- ggplot(df_plot, aes(x = vect_bulk, y = vect_sc)) + geom_pointdensity() +
   scale_color_viridis() + dot_plot + xlab('Bulk TMT') + ylab('Single Cell')+
-  ggtitle('Log2(Melanoma/PDAC)') + rremove('legend') +ylim(c(-2.5,2.5)) + theme(plot.title = element_text(size = 14))
+  ggtitle('Log2(Melanoma/PDAC)') + rremove('legend') +ylim(c(-2.5,2.5)) + theme(plot.title = element_text(size = 14))+
+  geom_abline(intercept = 0, slope = TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]], col = "red")
 
 cor(df_plot$vect_sc,df_plot$vect_bulk,use = 'pairwise.complete.obs', method = 'pearson')
 TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
 
 
-
 rat1+rat2+rat3
 
-
-look <- AppNote@reductions$PCA
-look
-look <- look %>% select(PC1, PC2, sample, Run, Well, plate, ID, label)
-
-
-bad_mel <- look %>% filter(sample == 'Melanoma')
-bad_mel <- bad_mel %>% filter(PC2 > 0)
-bad_mel <- bad_mel %>% filter(sample == 'Melanoma')
+numb_cells = c(1280,1536,3584,3712)
+plex = c(' 2-plex',' 3-plex', '18-plex', '32-plex')
+df <- as.data.frame(cbind(numb_cells,plex))
+df$numb_cells <- as.numeric(numb_cells)
+ggplot(df, aes(x = plex,y = numb_cells)) + geom_bar(stat = 'identity',width = .7)+dot_plot+
+  ylim(c(0,4200)) + ylab('# of cells / single prep') + xlab('') + ggtitle('nPOP sample prep throughput')
 
 
