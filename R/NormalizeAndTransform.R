@@ -722,7 +722,7 @@ BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
 LC_BatchCorrect <- function(QQC){
 
   pep_norm <- QQC@matricies@peptide
-  pep_norm <- QuantQC::normalize(pep_norm,log = T)
+  pep_norm <- QuantQC::Normalize_reference_vector(pep_norm,log = T)
   order_vect <- QQC@meta.data %>% filter(ID %in% colnames(QQC@matricies@peptide))
 
   if(sum(order_vect$ID == colnames(pep_norm)) != ncol(pep_norm)){
