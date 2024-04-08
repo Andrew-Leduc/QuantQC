@@ -525,7 +525,7 @@ CollapseToProtein <- function(QQC, opt, norm = 'ref'){
   if(opt == 1){
 
     # Remove peptide protein name columns
-    # Normalize_peptide_data <- as.matrix(sc.data)
+    Normalize_peptide_data <- as.matrix(sc.data)
     #
     # # Normalize peptide data for cell size and then to relative abundances and log transform
     # if(norm == 'std'){
@@ -541,9 +541,20 @@ CollapseToProtein <- function(QQC, opt, norm = 'ref'){
     #Normalize_peptide_data[Normalize_peptide_data == Inf] <- NA
     #Normalize_peptide_data[Normalize_peptide_data == -Inf] <- NA
 
-    QQC <- LC_BatchCorrect(QQC)
+    if(QQC@ms_type == 'DDA'){
 
-    Normalize_peptide_data <- QQC@matricies@peptide
+      Normalize_peptide_data <- Normalize_reference_vector(sc.data,log = T)
+      QQC@matricies@peptide <-  Normalize_peptide_data
+
+    }
+
+    if(QQC@ms_type != 'DDA'){
+
+      QQC <- LC_BatchCorrect(QQC)
+      Normalize_peptide_data <- QQC@matricies@peptide
+
+    }
+
 
 
     #Re-Join data
@@ -722,7 +733,10 @@ BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
 LC_BatchCorrect <- function(QQC){
 
   pep_norm <- QQC@matricies@peptide
+  pep_norm[pep_norm==0] <- NA
+
   pep_norm <- QuantQC::Normalize_reference_vector(pep_norm,log = T)
+
   order_vect <- QQC@meta.data %>% filter(ID %in% colnames(QQC@matricies@peptide))
 
   if(sum(order_vect$ID == colnames(pep_norm)) != ncol(pep_norm)){
@@ -742,7 +756,7 @@ LC_BatchCorrect <- function(QQC){
       set_df <- 2
     }
 
-    if(sum(is.na(pep_norm[i,])==F) > 9){
+    if(sum(is.na(pep_norm[i,])==F) > 29){
 
 
       df_spline <- as.data.frame(order_vect$Order)
@@ -750,6 +764,20 @@ LC_BatchCorrect <- function(QQC){
       df_spline$data <- pep_norm[i,]
       df_spline$holder <- 1:ncol(pep_norm)
       df_spline <- df_spline %>% filter(is.na(data)==F)
+
+      if(QQC@ms_type == 'DDA'){
+        set_df <- length(unique(df_spline$order))
+        if(set_df > 20){
+          set_df <- 20
+        }
+        if(set_df == 3){
+          df_spline$order[1] <- df_spline$order[1] +.001
+        }
+
+
+      }
+
+
 
       smooth = stats::smooth.spline(df_spline$order,df_spline$data,df = set_df)
       predicted_y <- predict(smooth,  df_spline$order)
