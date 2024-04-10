@@ -223,7 +223,7 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
   Raw_data <- as.data.frame(Raw_data)
 
-  #Raw_data <- Raw_data %>% filter(Lib.PG.Q.Value < .01)
+  Raw_data <- Raw_data %>% filter(Lib.PG.Q.Value < .01)
   Raw_data <- Raw_data %>% filter(Run %in% linker$Run)
   Raw_data <- Raw_data %>% left_join(linker, by = c('Run'))
 

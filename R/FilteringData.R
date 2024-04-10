@@ -95,7 +95,6 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 
 
 
-
   # Get IDs for negative controls
   negative_IDs <- cellenONE_meta$ID[cellenONE_meta$sample == 'neg']
 
@@ -183,14 +182,14 @@ Count_peptides_per_cell <- function(sc.data,cellenONE_meta,good_cells = NULL){
 
 EvaluateNegativeControls_DDA <- function(QQC){
 
-
   # Compute CVs of cells and negative controls, function outputs CV plot and list of cells with CVs
   CVm <- CVs(QQC)
 
 
   # Get IDs of cells with median protein CVs (good_cells is a df with cell ID and CV)
-  good_cells <- CVm %>% filter(cvq < .4)
+  good_cells <- CVm %>% filter(cvq < .9)
 
+  good_cells <- good_cells %>% filter(value != 'neg')
 
   if(length(good_cells) < 3){
 

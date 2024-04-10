@@ -66,6 +66,7 @@ link_cellenONE_Raw <- function(QQC,cells_file){
   linker <- QQC@meta.data
 
 
+
   if(QQC@ms_type == 'DDA'){
     cellenOne_data <- analyzeCellenONE_TMT(cells_file,QQC@misc[['plex']])
   }
@@ -82,8 +83,12 @@ link_cellenONE_Raw <- function(QQC,cells_file){
   cellenOne_data_small <- cellenOne_data %>% dplyr::select(any_of(c('ID','diameter','sample','label','injectWell','plate')))
   cellenOne_data_small <- as.data.frame(cellenOne_data_small)
 
+  #cellenOne_data_small <- cellenOne_data_small %>% filter(injectWell %in%  QQC@raw_data$Well)
+  #cellenOne_data_small <- cellenOne_data_small %>% filter(plate %in%  QQC@raw_data$plate)
 
-  cellID <- cellID %>% left_join(cellenOne_data_small,by = c('ID'))
+
+
+  cellID <- cellID %>% dplyr::left_join(cellenOne_data_small,by = c('ID'))
 
   cellID$sample[is.na(cellID$sample)==T] <- 'neg'
 
@@ -125,6 +130,7 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
 
   cells_file <- df
 
+
   #file_paths
   if(plex == 14){
     #File paths to pickup/label files
@@ -144,6 +150,20 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
 
   cells_file[grepl("Transmission",cells_file$X),]$X <- NA
   cells_file <- cells_file %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
+
+  if(sum(cells_file$X == 'Blue') > 0){
+    cells_file[grepl("Blue",cells_file$X),]$X <- NA
+    cells_file <- cells_file %>% filter(is.na(X) == F)
+  }
+  if(sum(cells_file$X == 'Green') > 0){
+    get_green <- seq(2, nrow(cells_file), by = 2)
+    green <- cells_file[get_green,]
+    cells_file[grepl("Green",cells_file$X),]$X <- NA
+    cells_file <- cells_file %>% filter(is.na(X) == F)
+  }
+
+
+
 
   #cells_file1 <- cells_file %>% filter(XPos > 50)
   #cells_file1$XPos <- cells_file1$XPos + 1
@@ -344,7 +364,6 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
 
 
 analyzeCellenONE_mTRAQ <- function(cells_file,plex){
-
 
   for(i in 1:length(cells_file)){
     df1 <- read.delim(cells_file[[i]])
@@ -646,3 +665,4 @@ PlotSlideLayout_label <- function(QQC){
           legend.text = element_text(size = 20))
 
 }
+

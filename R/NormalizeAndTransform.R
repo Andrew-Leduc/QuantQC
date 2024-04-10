@@ -525,7 +525,7 @@ CollapseToProtein <- function(QQC, opt, norm = 'ref'){
   if(opt == 1){
 
     # Remove peptide protein name columns
-    Normalize_peptide_data <- as.matrix(sc.data)
+    #Normalize_peptide_data <- as.matrix(sc.data)
     #
     # # Normalize peptide data for cell size and then to relative abundances and log transform
     # if(norm == 'std'){
