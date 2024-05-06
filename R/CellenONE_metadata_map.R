@@ -80,8 +80,14 @@ link_cellenONE_Raw <- function(QQC,cells_file){
   cellID <- as.data.frame(cellID)
   colnames(cellID) <- 'ID'
 
-  cellenOne_data_small <- cellenOne_data %>% dplyr::select(any_of(c('ID','diameter','sample','label','injectWell','plate')))
-  cellenOne_data_small <- as.data.frame(cellenOne_data_small)
+  if(sum(colnames(cellenOne_data)=='Intensity') == 0){
+    cellenOne_data_small <- cellenOne_data %>% dplyr::select(any_of(c('ID','diameter','sample','label','injectWell','plate')))
+    cellenOne_data_small <- as.data.frame(cellenOne_data_small)
+  }
+  if(sum(colnames(cellenOne_data)=='Intensity') == 1){
+    cellenOne_data_small <- cellenOne_data %>% dplyr::select(any_of(c('ID','diameter','sample','label','injectWell','plate','Intensity','Stain_Diameter')))
+    cellenOne_data_small <- as.data.frame(cellenOne_data_small)
+  }
 
   #cellenOne_data_small <- cellenOne_data_small %>% filter(injectWell %in%  QQC@raw_data$Well)
   #cellenOne_data_small <- cellenOne_data_small %>% filter(plate %in%  QQC@raw_data$plate)
@@ -155,7 +161,9 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     cells_file[grepl("Blue",cells_file$X),]$X <- NA
     cells_file <- cells_file %>% filter(is.na(X) == F)
   }
+  store <- F
   if(sum(cells_file$X == 'Green') > 0){
+    store <- T
     get_green <- seq(2, nrow(cells_file), by = 2)
     green <- cells_file[get_green,]
     cells_file[grepl("Green",cells_file$X),]$X <- NA
@@ -355,7 +363,15 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
   cellenOne_data$ID <- paste0(cellenOne_data$injectWell,cellenOne_data$plate,cellenOne_data$label)
 
 
+  if(store == T){
 
+    cellenOne_data$match_stain <- paste0('F',cellenOne_data$field,'X',cellenOne_data$dropXPos,'Y',cellenOne_data$dropYPos)
+    green$match_stain <- paste0('F',green$Field,'X',green$XPos,'Y',green$YPos)
+    green <- green %>% dplyr::select(match_stain,Intensity,Diameter)
+    colnames(green)[3] <- 'Stain_Diameter'
+    cellenOne_data <- cellenOne_data %>% left_join(green, by = c('match_stain'))
+
+  }
 
   return(cellenOne_data)
 
@@ -522,31 +538,13 @@ analyzeCellenONE_mTRAQ <- function(cells_file,plex){
   isoLab$pickupX <- NA
   isoLab$pickupY <- NA
 
-  #ann_123 <- ann(ref = as.matrix(unique(pickup[(-which(pickup$field == 4)) , c("xPos","yPos")])),  target = as.matrix(isoLab[(-which(isoLab$Field == 4)) , c("xPos","yPos")]), k=1)
-
   ann_ <- ann(ref = as.matrix(unique(pickup[, c("xPos","yPos")])),  target = as.matrix(isoLab[ , c("xPos","yPos")]), k=1)
 
-  #ann_4 <- ann(ref = as.matrix(unique(pickup[(which(pickup$field == 4)) , c("xPos","yPos")])),  target = as.matrix(isoLab[(which(isoLab$Field == 4)) , c("xPos","yPos")]), k=1)
-
-  #isoLab[(-which(isoLab$Field == 4)),]$ann <-  ann_123$knnIndexDist[,1]
-  #isoLab[(which(isoLab$Field == 4)),]$ann <-  ann_4$knnIndexDist[,1]
 
   isoLab$ann <-  ann_$knnIndexDist[,1]
 
 
-  ## split - combine
-  #isoLab_123 <- isoLab[-which(isoLab$Field == 4),]
-  #isoLab_4 <- isoLab[which(isoLab$Field == 4),]
-
   isoLab_new <- unique(pickup[, c("xPos","yPos")])
-  #notFieldFourPickUnique <- unique(pickup[-(which(pickup$field == 4)) , c("xPos","yPos")])
-  #fieldFourPickUnique <- unique(pickup[(which(pickup$field == 4)) , c("xPos","yPos")])
-
-  #isoLab_123$pickupX <- notFieldFourPickUnique[isoLab_123$ann,]$xPos
-  #isoLab_123$pickupY <- notFieldFourPickUnique[isoLab_123$ann,]$yPos
-
-  #isoLab_4$pickupX <- fieldFourPickUnique[isoLab_4$ann,]$xPos
-  #isoLab_4$pickupY <- fieldFourPickUnique[isoLab_4$ann,]$yPos
 
   isoLab$pickupX <- isoLab_new[isoLab$ann,]$xPos
   isoLab$pickupY <- isoLab_new[isoLab$ann,]$yPos

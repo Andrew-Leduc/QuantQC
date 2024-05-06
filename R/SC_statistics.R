@@ -554,7 +554,7 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
   good_cells <- colnames(QQC@matricies@peptide)
   meta <- meta %>% dplyr::filter(ID %in% good_cells)
 
-  title_text <- paste0('Correlation = ', round(cor((meta$diameter/2)^3,10^meta$prot_total,use = 'pairwise.complete.obs'),2))
+  title_text <- paste0('Correlation = ', round(cor(meta$diameter,meta$prot_total,use = 'pairwise.complete.obs'),2))
 
   if(type == 'sample'){
     plot_ <-    ggplot(meta, aes(x = log2((diameter/2)^3),y = log2(10^prot_total),color = sample)) +

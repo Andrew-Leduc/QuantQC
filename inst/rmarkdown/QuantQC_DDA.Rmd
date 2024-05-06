@@ -1,5 +1,5 @@
 ---
-title: "Quant DO-MS"
+title: "QuantQC Report"
 author: ""
 date: "11/29/2022"
 output: html_document
@@ -19,7 +19,7 @@ params:
 
 # Set parameters
 
-PIF <- .7
+PIF <- .6
 PEP <- .07
 
 CV_thresh <- params$CV_thresh

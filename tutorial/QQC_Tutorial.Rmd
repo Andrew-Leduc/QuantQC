@@ -138,7 +138,7 @@ Protocol_DDA <- MQ_to_QQC(data_path,link_path,plex = 29, PIF = .75, PEP = .07)
 
   # DIA
 
-# Trachea <- DIANN_to_QQC(data_path,linker_path, plex = 2, carrier = T)
+# Protocol_DIA <- DIANN_to_QQC(data_path,linker_path, plex = 2, carrier = T)
 
 
 
@@ -288,7 +288,7 @@ PlotNegCtrl(Protocol_DDA, CV_thresh = .38)
 
   # DIA
 
-#PlotNegCtrl(Trachea)
+#PlotNegCtrl(Protocol_DIA)
 
 ```
 

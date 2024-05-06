@@ -192,6 +192,8 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
   linker <- read.csv(linker_path)
   linker$Order <- 1:nrow(linker)
 
+  colnames(linker) <- c('Run','Well','plate')
+
   columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence','Precursor.Mz',
                       'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
 
