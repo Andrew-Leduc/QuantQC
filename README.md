@@ -23,7 +23,7 @@ There are two required packages that are not installed by default.
   1. [Seurat](https://satijalab.org/seurat/articles/install.html)
   2. [DIANN r package](https://github.com/vdemichev/diann-rpackage)
 
-To install the QuantQC package, run
+To install the QuantQC package, run (you may need to install devtools first):
 
 ```
 devtools::install_github("https://github.com/Andrew-Leduc/QuantQC")

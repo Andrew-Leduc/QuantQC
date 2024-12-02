@@ -100,16 +100,16 @@ one <-"~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/Melanoma.xls"
 two <- "~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/PDAC.xls"
 three <- "~/Desktop/Github/QuantQC/AnalysisFromPaper/plexDIA/Monocyte.xls"
 
-all_cells <- list(Monocyte = one,
+all_cells <- list(Melanoma = one,
                   PDAC = two,
-                  Melanoma = three)
+                  Monocyte = three)
 
 
 
 # input character vector of proteins you'd like to see visualized in report
 #prot_vis_umap <- c('O00487')
 
-output_path <- ".../path/QQC_DIA_Report.html"
+output_path <- "~/Desktop/QQC_DIA_Report.html"
 
 # Generate the HTML one line
 Gen_QQC_report_DIA(data_path = data_path,
@@ -118,7 +118,7 @@ Gen_QQC_report_DIA(data_path = data_path,
                    output_path = output_path,
                    plex_exp = 3,
                    carrier_used = F,
-                   ChQ = .1)
+                   ChQ = 1)
 
 
 
@@ -168,7 +168,7 @@ PlotNegCtrl(AppNote)
 
 
 # filter bad cells based off above, put in log10 intensity
-AppNote <- FilterBadCells(AppNote, min_intens = 7)
+AppNote <- FilterBadCells(AppNote, min_intens = 7.5)
 
 
 
@@ -208,11 +208,11 @@ AppNote <- BatchCorrect(AppNote,run = F,labels = T)
 
 
 
-
+AppNote <- ComputePCA(AppNote)
 
 ## plot PCA options are "Run order" "Total protein" "Condition" "Label"
 PlotPCA(AppNote, by = "Run order")
-
+PlotPCA(AppNote, by = "Condition")
 
 ## also assigns louvain clusters
 AppNote <- ComputeUMAP(AppNote)
@@ -220,7 +220,7 @@ AppNote <- ComputeUMAP(AppNote)
 ## plots by cluster
 PlotUMAP(AppNote, by = 'Condition')
 
-
+View(AppNote@reductions$UMAP)
 ## Plots peptide agreement across clusters and shows location of peptide mapped to protein
 ## sequence
 
@@ -304,15 +304,15 @@ TLS(df_plot$vect_sc,df_plot$vect_bulk)[[1]]
 
 
 #searched SC data, find on massive repo
-data_path <- "path/evidence.txt"
+data_path <- "/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/aleduc/TMT29/Protocol_final_data/All_1p_FDR/evidence.txt"
 
 # link raw file name to well plate, find in the github repo /QuantQC/AnalysisFromPaper/pSCoPE/
-linker_path <- "/pSCoPE/linker.csv"
+linker_path <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/linker.csv"
 
 # Read in cell isolation files from CellenONE and assign cell type, find in folder /QuantQC/AnalysisFromPaper/pSCoPE/
-one <-"/pSCoPE/Monocyte_isolated.xls"
-two <- "/pSCoPE/PDAC_isolated.xls"
-three <- "/pSCoPE/Melanoma_isolated.xls"
+one <-"/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/Monocyte_isolated.xls"
+two <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/PDAC_isolated.xls"
+three <- "/Users/andrewleduc/Desktop/Github/QuantQC/AnalysisFromPaper/pSCoPE/Melanoma_isolated.xls"
 
 all_cells <- list(Monocyte = one,
                   PDAC = two,
@@ -379,7 +379,7 @@ PlotNegCtrl(AppNote,CV_thresh = .38)
 
 
 # filter bad cells based off above, put in log10 intensity
-AppNote <- FilterBadCells(AppNote, CV_thresh = .38)
+AppNote <- FilterBadCells(AppNote, CV_thresh = .4)
 
 
 
@@ -432,7 +432,7 @@ AppNote <- ComputeUMAP(AppNote)
 ## plots by cluster
 PlotUMAP(AppNote)
 PlotUMAP(AppNote, by = 'Condition')
-FeatureUMAP(AppNote, prot = 'P09429')
+FeatureUMAP(AppNote, prot = 'P09429') + theme_classic()
 
 
 
@@ -558,5 +558,62 @@ df <- as.data.frame(cbind(numb_cells,plex))
 df$numb_cells <- as.numeric(numb_cells)
 ggplot(df, aes(x = plex,y = numb_cells)) + geom_bar(stat = 'identity',width = .7)+dot_plot+
   ylim(c(0,4200)) + ylab('# of cells / single prep') + xlab('') + ggtitle('nPOP sample prep throughput')
+
+
+
+
+
+
+dead <- AppNote@reductions$UMAP %>% filter(cluster %in% c(5,6,7))
+
+alive <- AppNote@reductions$UMAP %>% filter(!cluster %in% c(5,6,7))
+
+dead <- rowMeans(AppNote@matricies@protein[,rownames(alive)],na.rm = T) - rowMeans(AppNote@matricies@protein[,rownames(dead)],na.rm = T)
+
+
+dead <- as.data.frame(dead)
+
+FeatureUMAP(AppNote, prot = 'P20290') + theme_classic()
+
+dead$prot <- rownames(dead)
+
+
+Hum <- Proc_fasta('/Users/andrewleduc/Desktop/Github/QuantQC/inst/extdata/Human.fasta')
+Mouse <- Proc_fasta('/Users/andrewleduc/Desktop/Github/QuantQC/inst/extdata/Mouse.fasta')
+Mouse$split_gene <- toupper(Mouse$split_gene)
+
+
+Mouse <- Mouse %>% filter(split_gene %in% Hum$split_gene)
+Hum <- Hum %>% filter(split_gene %in% Mouse$split_gene)
+
+Mouse <- Mouse[order(Mouse$split_gene),]
+Hum <- Hum[order(Hum$split_gene),]
+
+convert <- Mouse %>% left_join(Hum, by = c('split_gene'))
+convert <- convert %>% filter(split_prot.y %in% dead$prot)
+convert <- convert %>% filter(split_prot.x %in% mat_comp$prot)
+convert <- convert %>% distinct(split_prot.y,.keep_all = T)
+
+mat_comp <- mat %>% filter(prot %in% convert$split_prot.x)
+dead <- dead %>% filter(prot %in% convert$split_prot.y)
+
+dead <- dead[convert$split_prot.y,]
+mat_comp <- mat_comp[convert$split_prot.x,]
+
+dead$dead <- -dead$dead - median(dead$dead)
+
+cor(mat_comp$bas_prot,dead$dead -1)
+
+both_spec <- cbind(mat_comp$bas_prot,dead$dead -1)
+
+colnames(both_spec) <- c('Mouse_Primary_Cells','Human_CellLines')
+both_spec <- as.data.frame(both_spec)
+
+ggplot(both_spec, aes(x = Mouse_Primary_Cells,y = Human_CellLines)) + geom_point() + dot_plot +
+  ggtitle('Cor = 0.50')
+
+
+
+
 
 
