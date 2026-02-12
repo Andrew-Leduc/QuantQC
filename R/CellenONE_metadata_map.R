@@ -93,12 +93,13 @@ link_cellenONE_Raw <- function(QQC,cells_file){
   #cellenOne_data_small <- cellenOne_data_small %>% filter(plate %in%  QQC@raw_data$plate)
 
 
+  cellenOne_data_small <- cellenOne_data_small %>% distinct(ID,.keep_all = T)
 
   cellID <- cellID %>% dplyr::left_join(cellenOne_data_small,by = c('ID'))
 
   cellID$sample[is.na(cellID$sample)==T] <- 'neg'
 
-  cellID$prot_total <- log2(colSums(peptide_data[,1:ncol(peptide_data)],na.rm = T))
+  cellID$prot_total <- log2(colSums(peptide_data,na.rm = T))
 
   QQC@cellenONE.meta <- cellenOne_data
 
@@ -117,9 +118,9 @@ link_cellenONE_Raw <- function(QQC,cells_file){
 
 
 
-
 analyzeCellenONE_TMT <- function(cells_file,plex){
   #cells_file <- all_cells
+  #plex = 32
   # Code to parse cellenONE files and map cell diameters, a mess and not too important,
   # dont feel obligeted to read
   for(i in 1:length(cells_file)){
@@ -146,6 +147,14 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     pickupPath1 <-  system.file("extdata", "14plex_files/Pickup_mock.fld", package = "QuantQC")
 
   }
+  if(plex == 12){
+    #File paths to pickup/label files
+    # 2plex
+    labelPath <- system.file("extdata", "12plex_files/Labels.fld", package = "QuantQC")
+    pickupPath1 <-  system.file("extdata", "12plex_files/Pickup_mock.fld", package = "QuantQC")
+
+  }
+
   if(plex == 29){
 
     # 29plex
@@ -153,6 +162,12 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     pickupPath1 <-  system.file("extdata", "29plex_files/Pickup_mock.fld", package = "QuantQC")
   }
 
+  if(plex == 32){
+
+    # 29plex
+    labelPath <- system.file("extdata", "32plex_files/Labels.fld", package = "QuantQC")
+    pickupPath1 <-  system.file("extdata", "32plex_files/Pickup_mock.fld", package = "QuantQC")
+  }
 
   cells_file[grepl("Transmission",cells_file$X),]$X <- NA
   cells_file <- cells_file %>% fill(2:7, .direction = "up") %>% drop_na(XPos)
@@ -203,6 +218,8 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
   label$yPos <- unlist(lapply(labelxyPos, '[[', 1))
   label$xPos <- unlist(lapply(labelxyPos, '[[', 2))
 
+
+
   ## sample pickup file
 
   con_pickup <-file(pickupPath1)
@@ -249,9 +266,22 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
   label$well[label$well == '1H3,'] <- '1G27,'
   label$well[label$well == '1H4,'] <- '1G28,'
   label$well[label$well == '1H5,'] <- '1G29,'
+  if(plex == 32){
+    label$well[label$well == '1P1,'] <- '1G25,'
+    label$well[label$well == '1P2,'] <- '1G26,'
+    label$well[label$well == '1P3,'] <- '1G27,'
+    label$well[label$well == '1P4,'] <- '1G28,'
+    label$well[label$well == '1P5,'] <- '1G29,'
+    label$well[label$well == '1P6,'] <- '1G30,'
+    label$well[label$well == '1P7,'] <- '1G31,'
+    label$well[label$well == '1P8,'] <- '1G32,'
+
+  }
   label$well <- substring(label$well, 3)
   label$well <- as.numeric(gsub(",","",label$well))
   matchTMTSCP <- paste0("TMT", 1:length(unique(label$well)))
+
+
 
   for (i in 1:length(matchTMTSCP)) {
 
@@ -284,10 +314,38 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
   isoLab$pickupX <- NA
   isoLab$pickupY <- NA
 
+
+  if(plex == 32){
+    isoLab <- isoLab %>% filter(is.na(yPos)==F)
+    isoLab$yPos <- as.numeric(isoLab$yPos)
+    isoLab$yPos[isoLab$yPos > 50] <- isoLab$yPos[isoLab$yPos > 50] + 10
+    isoLab$yPos[isoLab$yPos > 33] <- isoLab$yPos[isoLab$yPos > 33] + 10
+    isoLab$yPos[isoLab$yPos > 17] <- isoLab$yPos[isoLab$yPos > 17] + 10
+
+    pickup$yPos[pickup$yPos > 50] <- pickup$yPos[pickup$yPos > 50] + 10
+    pickup$yPos[pickup$yPos > 33] <- pickup$yPos[pickup$yPos > 33] + 10
+    pickup$yPos[pickup$yPos > 17] <- pickup$yPos[pickup$yPos > 17] + 10
+
+  }
+
   ann_ <- yaImpute::ann(ref = as.matrix(unique(pickup[, c("xPos","yPos")])),  target = as.matrix(isoLab[ , c("xPos","yPos")]), k=1)
   isoLab$ann <-  ann_$knnIndexDist[,1]
-  isoLab_new <- unique(pickup[, c("xPos","yPos")])
 
+  if(plex == 32){
+
+
+    isoLab$yPos[isoLab$yPos > 17] <- isoLab$yPos[isoLab$yPos > 17] - 10
+    isoLab$yPos[isoLab$yPos > 33] <- isoLab$yPos[isoLab$yPos > 33] - 10
+    isoLab$yPos[isoLab$yPos > 50] <- isoLab$yPos[isoLab$yPos > 50] - 10
+
+    pickup$yPos[pickup$yPos > 17] <- pickup$yPos[pickup$yPos > 17] - 10
+    pickup$yPos[pickup$yPos > 33] <- pickup$yPos[pickup$yPos > 33] - 10
+    pickup$yPos[pickup$yPos > 50] <- pickup$yPos[pickup$yPos > 50] - 10
+
+  }
+
+
+  isoLab_new <- unique(pickup[, c("xPos","yPos")])
 
 
   isoLab$pickupX <- isoLab_new[isoLab$ann,]$xPos
@@ -350,6 +408,37 @@ analyzeCellenONE_TMT <- function(cells_file,plex){
     }
     cellenOne_data$label <- cellenOne_data$label_new
     cellenOne_data$label_new <- NULL
+
+    #cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 3))
+
+
+
+  }
+
+  if(plex == 32){
+
+    labs_map <- c('Reporter.intensity.4', 'Reporter.intensity.5','Reporter.intensity.6',
+                  'Reporter.intensity.7', 'Reporter.intensity.8','Reporter.intensity.9',
+                  'Reporter.intensity.10', 'Reporter.intensity.11','Reporter.intensity.12',
+                  'Reporter.intensity.13','Reporter.intensity.14','Reporter.intensity.15',
+                  'Reporter.intensity.16','Reporter.intensity.17','Reporter.intensity.18',
+                  'Reporter.intensity.19','Reporter.intensity.20','Reporter.intensity.21',
+                  'Reporter.intensity.22','Reporter.intensity.23','Reporter.intensity.24',
+                  'Reporter.intensity.25','Reporter.intensity.26','Reporter.intensity.27',
+                  'Reporter.intensity.28','Reporter.intensity.29','Reporter.intensity.30',
+                  'Reporter.intensity.31','Reporter.intensity.32','Reporter.intensity.33',
+                  'Reporter.intensity.34','Reporter.intensity.35')
+
+    cellenOne_data$label <- as.numeric(cellenOne_data$label)
+    cellenOne_data$label_new <- NA
+    for(i in 1:32){
+      cellenOne_data$label_new[cellenOne_data$label == i] <- labs_map[i]
+
+    }
+    cellenOne_data$label <- cellenOne_data$label_new
+    cellenOne_data$label_new <- NULL
+
+    cellenOne_data <- cellenOne_data %>% filter(is.na(label)==F)
 
     #cellenOne_data$label <- paste0('Reporter.intensity.' , (as.numeric(cellenOne_data$label) + 3))
 

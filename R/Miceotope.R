@@ -120,6 +120,8 @@ Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1, t = 5){
 
   mice_K_H <- mice_K %>% filter(Iso == 'H')
 
+  dim(mice_K)
+
   mice_K_H_ <- reshape2::dcast(mice_K_H,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
 
   n_occur <- data.frame(table(mice_K_H_$seqcharge))
@@ -214,6 +216,168 @@ Miceotope_cellXpeptide <- function(QQC,TQVal = 1, chQVal = 1, t = 5){
 }
 
 
+Miceotope_cellXpeptide_Jmod <- function(QQC,TQVal = 1, chQVal = 1, t = 5){
+
+  #sc.data <- r1_5day_male@raw_data
+  sc.data <- QQC@raw_data
+
+  #sc.data <- sc.data %>% filter(Channel.Q.Value < chQVal)
+  #sc.data <- sc.data %>% filter(Translated.Q.Value < TQVal)
+
+  #sc.data$ID <- paste0(sc.data$Well,sc.data$plate,'.',sc.data$plex)
+
+
+
+  sc.data$pep_type <- str_sub(sc.data$Stripped.Sequence,-1,-1)
+
+  sc.data <- sc.data %>% filter(Ms1.Area != 0)
+
+  mice_K <- sc.data %>% filter(pep_type == 'K')
+  mice_R <- sc.data %>% filter(pep_type == 'R')
+
+  mice_K <- mice_K %>% filter(Run %in% mice_R$Run)
+  mice_R <- mice_R %>% filter(Run %in% mice_K$Run)
+
+  mice_R$seqRun <- paste0(mice_R$seqcharge,mice_R$ID)
+  mice_R <- mice_R %>% dplyr::distinct(seqRun,.keep_all = T)
+
+  mice_R$seqRun <- NULL
+
+
+
+
+  mice_R_ <- reshape2::dcast(mice_R,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+  n_occur <- data.frame(table(mice_R_$seqcharge))
+  n_occur <- n_occur[n_occur$Freq > 1,]
+  if(nrow(n_occur) > 0){
+    mice_R_ <- mice_R_ %>% filter(seqcharge %in% n_occur$Var1)
+    mice_R_ <- mice_R_ %>% distinct(seqcharge,.keep_all = T)
+
+    for(i in 1:nrow(mice_R_)){
+      mice_R$Protein.Group[mice_R$seqcharge == mice_R_$seqcharge[i]] <- mice_R_$Protein.Group[i]
+    }
+  }
+  mice_R <- reshape2::dcast(mice_R,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+
+  Prot_pep_mapR <- as.data.frame(cbind(mice_R$Protein.Group,mice_R$seqcharge))
+  colnames(Prot_pep_mapR) <- c('Protein','seqcharge')
+
+  rownames(mice_R) <- mice_R$seqcharge
+  mice_R$seqcharge <- NULL
+  mice_R$Protein.Group <- NULL
+
+  mice_K$Iso <- NA
+  mice_K$Iso[grepl('K_6C13-6',mice_K$Precursor.Id)] <- 'H'
+  mice_K$Iso[grepl('K_6C13-0',mice_K$Precursor.Id)] <- 'L'
+
+
+  mice_K_count <- mice_K %>% group_by(ID,seqcharge) %>% summarise(numbObs = sum(is.na(Ms1.Area)==F))
+  mice_K_count <- mice_K_count %>% filter(numbObs == 2)
+
+
+
+  mice_K <- mice_K %>% filter(seqcharge %in% mice_K_count$seqcharge)
+
+  mice_K_H <- mice_K %>% filter(Iso == 'H')
+
+
+  mice_K_H_ <- reshape2::dcast(mice_K_H,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+  n_occur <- data.frame(table(mice_K_H_$seqcharge))
+  n_occur <- n_occur[n_occur$Freq > 1,]
+
+  if(nrow(n_occur) > 0){
+    mice_K_H_ <- mice_K_H_ %>% filter(seqcharge %in% n_occur$Var1)
+    mice_K_H_ <- mice_K_H_ %>% distinct(seqcharge,.keep_all = T)
+
+    for(i in 1:nrow(mice_K_H_)){
+      mice_K_H$Protein.Group[mice_K_H$seqcharge == mice_K_H_$seqcharge[i]] <- mice_K_H_$Protein.Group[i]
+    }
+  }
+
+
+  mice_K_H <- reshape2::dcast(mice_K_H,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+
+
+  mice_K_L <- mice_K %>% filter(Iso == 'L')
+  mice_K_L_ <- reshape2::dcast(mice_K_L,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+  n_occur <- data.frame(table(mice_K_L_$seqcharge))
+  n_occur <- n_occur[n_occur$Freq > 1,]
+  if(nrow(n_occur) > 0){
+    mice_K_L_ <- mice_K_L_ %>% filter(seqcharge %in% n_occur$Var1)
+    mice_K_L_ <- mice_K_L_ %>% distinct(seqcharge,.keep_all = T)
+
+    for(i in 1:nrow(mice_K_L_)){
+      mice_K_L$Protein.Group[mice_K_L$seqcharge == mice_K_L_$seqcharge[i]] <- mice_K_L_$Protein.Group[i]
+    }
+
+  }
+
+  mice_K_L <- reshape2::dcast(mice_K_L,Protein.Group+seqcharge ~ ID, value.var = 'Ms1.Area')
+
+
+  Prot_pep_mapK <- as.data.frame(cbind(mice_K_L$Protein.Group,mice_K_L$seqcharge))
+  colnames(Prot_pep_mapK) <- c('Protein','seqcharge')
+
+  rownames(mice_K_L) <- mice_K_L$seqcharge
+  mice_K_L$seqcharge <- NULL
+  mice_K_L$Protein.Group <- NULL
+  mice_K_L <- as.matrix(mice_K_L)
+
+  rownames(mice_K_H) <- mice_K_H$seqcharge
+  mice_K_H$seqcharge <- NULL
+  mice_K_H$Protein.Group <- NULL
+  mice_K_H <- as.matrix(mice_K_H)
+
+  sect_col <- intersect(colnames(mice_K_H),colnames(mice_K_L))
+  #sect_row <- intersect(rownames(mice_K_H),rownames(mice_K_L))
+  mice_K_H <- mice_K_H[,sect_col]
+  mice_K_L <- mice_K_L[,sect_col]
+  #Prot_pep_mapK <- Prot_pep_mapK[sect_row,]
+  mice_R <- mice_R[,sect_col]
+
+  mice_K_H_raw = mice_K_H
+  mice_K_L_raw = mice_K_L
+
+  mice_K_all <- mice_K_H+mice_K_L
+
+  mice_all_pep <- as.matrix(rbind(mice_R,mice_K_all))
+
+  std_matricies <- new('matricies_DIA',peptide = mice_all_pep,peptide_protein_map = rbind(Prot_pep_mapR,Prot_pep_mapK))
+
+  QQC@matricies <- std_matricies
+
+
+  mice_K_H_ov_L <- mice_K_H/mice_K_L
+
+  mice_alpha <- log(mice_K_H/mice_K_L+1)/t
+
+  mice_K_all <- QuantQC::normalize(mice_K_all)
+  mice_K_H <- mice_K_H/(mice_K_H+mice_K_L)
+  mice_K_L <- 1 - mice_K_H
+  mice_K_H <- mice_K_all*mice_K_H
+  mice_K_L <- mice_K_all*mice_K_L
+
+  mice_beta <- mice_K_H*mice_alpha/(1-exp(-mice_alpha*t)) # Size adjusted translation rate
+
+  mice_beta <- QuantQC::normalize(mice_beta)
+
+  miceotope_matricies <- new('matricies_Miceotopes',Raw_H = as.matrix(mice_K_H_raw),Raw_L = as.matrix(mice_K_L_raw), HovL_pep = as.matrix(mice_K_H_ov_L),Beta_pep = as.matrix(mice_beta),Alpha_pep = as.matrix(mice_alpha), peptide_protein_map=Prot_pep_mapK)
+
+
+  QQC@miceotopes <- miceotope_matricies
+
+
+  return(QQC)
+
+}
+
+
+
 MicePepCorPlot <- function(QQC){
 
   Prot_pep_mapK <- QQC@miceotopes@peptide_protein_map
@@ -245,6 +409,9 @@ Miceotope_protein_collapse <- function(QQC){
   mice_K_H_ov_L <-  QQC@miceotopes@HovL_pep[,good_cells]
   mice_beta <-QQC@miceotopes@Beta_pep[,good_cells]
   mice_alpha <- QQC@miceotopes@Alpha_pep[,good_cells]
+  #QQC@miceotopes@Raw_H <-QQC@miceotopes@Raw_H[,good_cells]
+  #QQC@miceotopes@Raw_L <- QQC@miceotopes@Raw_L[,good_cells]
+
 
   Prot_pep_mapK <- QQC@miceotopes@peptide_protein_map
 
@@ -282,6 +449,8 @@ Miceotope_protein_collapse <- function(QQC){
   QQC@miceotopes@HovL_prot <- as.matrix(mice_K_H_ov_L_prot)
   QQC@miceotopes@Beta_prot <- as.matrix(mice_beta_prot)
   QQC@miceotopes@Alpha_prot <- as.matrix(mice_alpha_prot)
+
+
 
 
   Turnover_all <- colMedians(as.matrix(mice_K_H_ov_L_prot),na.rm = T)
@@ -358,6 +527,32 @@ Mice_DimPlot_turnover <-function(QQC, reuct = 'PCA', by = 'Total'){
 
   return(dim_plot)
 
+
+}
+
+
+
+
+Trim_extra_peptides_miceotopes <- function(QQC){
+
+  main_pep <- rownames(QQC@matricies@peptide)
+
+  good_cell <- colnames(QQC@matricies@peptide)
+
+  sect <- intersect(main_pep,rownames(QQC@miceotopes@Raw_H))
+
+  rownames(QQC@miceotopes@peptide_protein_map) <- QQC@miceotopes@peptide_protein_map$seqcharge
+
+  sect <- rownames(QQC@miceotopes@Raw_H)
+
+  QQC@miceotopes@peptide_protein_map <- QQC@miceotopes@peptide_protein_map[sect,]
+  QQC@miceotopes@Raw_H <- QQC@miceotopes@Raw_H[sect,good_cell]
+  QQC@miceotopes@Raw_L <- QQC@miceotopes@Raw_L[sect,good_cell]
+  QQC@miceotopes@HovL_pep <- QQC@miceotopes@HovL_pep[sect,good_cell]
+  QQC@miceotopes@Alpha_pep <- QQC@miceotopes@Alpha_pep[sect,good_cell]
+  QQC@miceotopes@Beta_pep <- QQC@miceotopes@Beta_pep[sect,good_cell]
+
+  return(QQC)
 
 }
 

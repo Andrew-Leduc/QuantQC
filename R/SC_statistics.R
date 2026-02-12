@@ -16,7 +16,7 @@
 #' @examples
 #' add_numbers(2, 3)
 #' @export
-SharedPeptideCor <- function(QQC, res = 'sc'){
+SharedPeptideCor <- function(QQC,n_obs_rec = 20 ,res = 'sc'){
   peptide_data <- QQC@matricies@peptide
   protein_dat <- QQC@matricies@protein
   peptide_protein_map <- QQC@matricies@peptide_protein_map
@@ -68,7 +68,7 @@ SharedPeptideCor <- function(QQC, res = 'sc'){
       cor_mat <- cor(t(mat_p1),use = 'pairwise.complete.obs')
 
       # Require atleast 5 pairwise observations to plot the correlations
-      cor_mat[obs_mat < 4] <- NA
+      cor_mat[obs_mat < n_obs_rec] <- NA
 
       # Turn correlation matrix to a vector for storage, store correlations and protein identity
       cor_mat <- cor_mat[lower.tri(cor_mat)]
