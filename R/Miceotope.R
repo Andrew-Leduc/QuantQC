@@ -377,7 +377,6 @@ Miceotope_cellXpeptide_Jmod <- function(QQC,TQVal = 1, chQVal = 1, t = 5){
 }
 
 
-
 MicePepCorPlot <- function(QQC){
 
   Prot_pep_mapK <- QQC@miceotopes@peptide_protein_map
@@ -417,13 +416,13 @@ Miceotope_protein_collapse <- function(QQC){
 
   mice_alpha_prot <- as.data.frame(mice_alpha)
   mice_alpha_prot$prot <- Prot_pep_mapK$Protein
-  mice_alpha_prot <- melt(mice_alpha_prot, ids = c('prot'))
+  mice_alpha_prot <- reshape2::melt(mice_alpha_prot, ids = c('prot'))
   mice_beta_prot <- as.data.frame(mice_beta)
   mice_beta_prot$prot <- Prot_pep_mapK$Protein
-  mice_beta_prot <- melt(mice_beta_prot, ids = c('prot'))
+  mice_beta_prot <- reshape2::melt(mice_beta_prot, ids = c('prot'))
   mice_K_H_ov_L_prot <- as.data.frame(mice_K_H_ov_L)
   mice_K_H_ov_L_prot$prot <- Prot_pep_mapK$Protein
-  mice_K_H_ov_L_prot <- melt(mice_K_H_ov_L_prot, ids = c('prot'))
+  mice_K_H_ov_L_prot <- reshape2::melt(mice_K_H_ov_L_prot, ids = c('prot'))
 
   mice_beta_prot <- mice_beta_prot %>% group_by(variable,prot) %>% summarise(value = median(value,na.rm=T))
   mice_alpha_prot <- mice_alpha_prot %>% group_by(variable,prot) %>% summarise(value = median(value,na.rm=T))
@@ -529,7 +528,6 @@ Mice_DimPlot_turnover <-function(QQC, reuct = 'PCA', by = 'Total'){
 
 
 }
-
 
 
 

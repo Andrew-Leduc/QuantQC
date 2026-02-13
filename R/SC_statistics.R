@@ -6,15 +6,20 @@
 ### Peptide correlations
 
 
-#' Add two numbers.
+#' Compute correlations between peptides mapping to the same protein.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For each protein with multiple quantified peptides, calculates the median
+#' pairwise correlation between its peptides across single cells. Also computes
+#' a null distribution by shuffling the protein-peptide mapping. Correlations are
+#' binned by average absolute protein fold change for downstream visualization.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated peptide and protein matrices and a peptide-protein map.
+#' @param n_obs_rec Integer minimum number of pairwise observations required for a correlation
+#'   to be included. Default \code{20}.
+#' @param res Character resolution level: \code{"sc"} for single-cell level (default) or
+#'   \code{"clust"} for cluster-averaged values.
+#' @return The QQC object with the \code{pep.cor} slot populated as a list containing the
+#'   peptide correlation data frame and the null distribution median.
 #' @export
 SharedPeptideCor <- function(QQC,n_obs_rec = 20 ,res = 'sc'){
   peptide_data <- QQC@matricies@peptide
@@ -132,15 +137,17 @@ SharedPeptideCor <- function(QQC,n_obs_rec = 20 ,res = 'sc'){
 
 }
 
-#' Add two numbers.
+#' Plot shared peptide correlations.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Visualizes the peptide correlation results from \code{SharedPeptideCor}.
+#' In box plot mode, displays correlations binned by mean absolute protein fold
+#' change with a red line indicating the null distribution. In histogram mode,
+#' displays the overall distribution of peptide correlations.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{pep.cor} slot.
+#' @param type Character plot type: \code{"box"} for box plots by fold-change bin (default)
+#'   or \code{"hist"} for a histogram.
+#' @return A ggplot object.
 #' @export
 PlotPepCor <- function(QQC,type = 'box'){
 
@@ -184,21 +191,23 @@ PlotPepCor <- function(QQC,type = 'box'){
 # Counting Peptide and protein numbers
 ####
 
-#' Add two numbers.
+#' Calculate within-set data completeness.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For each multiplexed set (defined by inject well and plate), computes the
+#' fraction of non-missing values per cell by calling \code{Data_completeness}
+#' on the subset of columns belonging to that set.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param Raw_data A numeric matrix or data frame of quantification values with
+#'   column names encoding set and cell identity.
+#' @param cellenOne_meta A data frame of cellenONE metadata with \code{injectWell}
+#'   and \code{plate} columns used to identify sets.
+#' @return A data frame of per-cell completeness statistics aggregated across all sets.
 #' @export
 inSet_completness <- function(Raw_data, cellenOne_meta){
   count = 0
-  for(i in unique(paste0(cellenONE_meta$injectWell,cellenONE_meta$plate))){
+  for(i in unique(paste0(cellenOne_meta$injectWell,cellenOne_meta$plate))){
 
-    Data_inset <- as.data.frame(Raw_cell_mat)[,which(grepl(i,colnames(Raw_cell_mat)))]
+    Data_inset <- as.data.frame(Raw_data)[,which(grepl(i,colnames(Raw_data)))]
 
     Data_inset <- Data_inset[which(is.na(rowMeans(Data_inset,na.rm = T))==F),]
 
@@ -229,15 +238,14 @@ inSet_completness <- function(Raw_data, cellenOne_meta){
 
 
 
-#' Add two numbers.
+#' Plot the number of peptides and proteins quantified per cell.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates side-by-side histograms showing the distribution of precursor
+#' (peptide) counts and protein counts per single cell. For DIA data, overlays
+#' distributions with and without channel Q-value filtering for comparison.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated peptide and protein matrices.
+#' @return A patchwork composite of two ggplot histograms: peptide counts and protein counts per cell.
 #' @export
 PlotProtAndPep <- function(QQC){
   # count peptide numbers
@@ -268,7 +276,7 @@ PlotProtAndPep <- function(QQC){
 
 
 
-    pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 15) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot + xlim(c((min(numb_pep$Number_precursors)-300)),(max(numb_pep$Number_precursors)+300))
+    pep_number <- ggplot(numb_pep, aes(x = Number_precursors)) + geom_histogram(bins = 15) + ggtitle('# precursors per sample') + theme(legend.position = "none")+ylab('# of single cells')+dot_plot + xlim(c((min(numb_pep$Number_precursors)-300)),(max(numb_pep$Number_precursors)+300))
 
     prot_number<- ggplot(numb_prot, aes(x = Number_proteins)) + geom_histogram(bins = 15) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot + xlim(c((min(numb_prot$Number_proteins)-200)),(max(numb_prot$Number_proteins)+200))
 
@@ -295,7 +303,7 @@ PlotProtAndPep <- function(QQC){
 
     numb_prot <- rbind(numb_prot,numb_prot_NF)
 
-    pep_number <- ggplot(numb_pep, aes(x = Number_precursors, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + rremove('legend')+ylab('# of single cells')+dot_plot
+    pep_number <- ggplot(numb_pep, aes(x = Number_precursors, fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# precursors per sample') + theme(legend.position = "none")+ylab('# of single cells')+dot_plot
 
     prot_number<- ggplot(numb_prot, aes(x = Number_proteins,fill = Filter)) + geom_histogram(bins = 30,position = 'identity',alpha = .5) + ggtitle('# proteins per sample') + ylab('# of single cells')+dot_plot
 
@@ -305,15 +313,14 @@ PlotProtAndPep <- function(QQC){
 
 }
 
-#' Add two numbers.
+#' Plot data completeness at the protein and cell level.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates histograms showing the fraction of non-missing values per protein
+#' (protein completeness) and per cell (cell completeness). For DIA data,
+#' overlays distributions with and without channel Q-value filtering.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated protein matrix (and protein mask for DIA).
+#' @return A patchwork composite of two ggplot histograms: protein completeness and cell completeness.
 #' @export
 PlotDataComplete <- function(QQC){
 
@@ -327,7 +334,7 @@ PlotDataComplete <- function(QQC){
 
   if(QQC@ms_type == 'DDA'){
     mp <- ggplot(missingness_prot_mat, aes(x = value)) +
-      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+theme(legend.position = "none") +ylab('# of proteins')+xlab('fraction values present')+dot_plot
 
     mc <- ggplot(missingness_cell_mat, aes(x = value)) +
       geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
@@ -364,7 +371,7 @@ PlotDataComplete <- function(QQC){
       geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle('Cell completness') + ylab('# of single cells')+
       xlab('fraction values present')+dot_plot
     mc <-  ggplot(missingness_prot_mat, aes(x = Miss_proteins,fill = Filter)) +
-      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+rremove('legend') +ylab('# of proteins')+xlab('fraction values present')+dot_plot
+      geom_histogram(bins = 20,position = 'identity',alpha = .5) + ggtitle(paste0('Protein completness, ', nrow(data) ,' proteins'))+theme(legend.position = "none") +ylab('# of proteins')+xlab('fraction values present')+dot_plot
 
 
 
@@ -384,15 +391,17 @@ PlotDataComplete <- function(QQC){
 
 
 
-#' Add two numbers.
+#' Plot the single-cell to carrier intensity ratio.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For DDA data, computes the median ratio of each single-cell reporter ion to
+#' the carrier channel and displays box plots by sample type. For DIA_C data,
+#' computes the median carrier-normalized ratio per cell and displays the
+#' estimated number of single-cell equivalents in the carrier.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated peptide matrix and metadata. For DDA,
+#'   the raw data must contain reporter ion columns.
+#' @return A ggplot object showing the single-cell to carrier ratio distribution,
+#'   or the string \code{"No carrier used"} if the MS type has no carrier.
 #' @export
 PlotSCtoCarrierRatio <- function(QQC){
 
@@ -449,15 +458,16 @@ PlotSCtoCarrierRatio <- function(QQC){
 }
 
 
-#' Add two numbers.
+#' Plot digest efficiency by comparing regular and missed-cleaved peptides.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Compares the median intensity of regular (fully cleaved) peptides to
+#' missed-cleaved peptides relative to the carrier. A higher ratio indicates
+#' better digestion efficiency in the carrier channel. Supports both DDA and
+#' DIA_C workflows.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated peptide matrix and peptide-protein map.
+#' @return A ggplot box plot showing log2 intensity relative to carrier for regular
+#'   versus missed-cleaved peptides, with the fold-change ratio in the title.
 #' @export
 PlotDigestEff <- function(QQC){
   do_plot <- "No carrier used"
@@ -538,15 +548,19 @@ PlotDigestEff <- function(QQC){
 
 
 
-#' Add two numbers.
+#' Plot cell size versus total protein intensity.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates a scatter plot of cellenONE-measured cell diameter (as log2 volume)
+#' against total protein intensity, with the Pearson correlation in the title.
+#' When \code{type = "sample"}, points are colored by sample identity. When
+#' \code{type = "Run order"}, points are colored by injection order and an
+#' additional panel shows the run-order-adjusted correlation.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with metadata containing \code{diameter}, \code{prot_total},
+#'   and \code{Order} columns, and a populated peptide matrix.
+#' @param type Character plot mode: \code{"sample"} (default) to color by sample identity,
+#'   or \code{"Run order"} to color by injection order and show adjusted correlation.
+#' @return A ggplot object (or patchwork composite for \code{"Run order"} mode).
 #' @export
 PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
   meta <- QQC@meta.data
@@ -591,15 +605,23 @@ PlotCellSizeVsIntensity <- function(QQC, type = 'sample'){
 
 
 
-#' Add two numbers.
+#' Visualize peptide-level consistency for a protein across UMAP clusters.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For a given protein, selects up to four of the most abundant peptides and
+#' plots their median abundance across UMAP clusters alongside the overall
+#' protein-level average. Includes error bars, point sizes scaled by the
+#' fraction of cells with measurements, and a protein sequence diagram showing
+#' peptide locations. Supports line plot and bubble plot modes.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated peptide and protein matrices, a
+#'   peptide-protein map, UMAP reductions with cluster assignments, and raw data.
+#' @param prot Character protein accession to visualize.
+#' @param type Character plot type: \code{"line"} (default) for line plots with a
+#'   protein sequence diagram, or \code{"bubble"} for a dot plot.
+#' @param fasta_path Optional path to a FASTA file. If \code{NA}, uses the
+#'   built-in Mouse or Human FASTA based on the species in \code{QQC@@misc[["Species"]]}.
+#' @return A patchwork composite ggplot object, or a character message if the protein
+#'   is not found or has only one peptide.
 #' @export
 ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = NA){
 
@@ -805,17 +827,17 @@ ProteinClustConsistency <- function(QQC, prot = NA, type = 'line',fasta_path = N
 
 
 
-#' Add two numbers.
+#' Plot MS1 versus MS2 peptide-level correlations.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For DIA data, computes per-peptide correlations between MS1 area and MS2
+#' precursor quantity across single cells, requiring at least 10 pairwise
+#' observations. Results are displayed as box plots binned by average absolute
+#' protein fold change.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated peptide matrix, raw data, and
+#'   channel Q-value stored in \code{misc[["ChQ"]]}.
+#' @return A ggplot box plot of MS1-MS2 correlations binned by fold change.
 #' @export
-
 PlotMS1vMS2 <- function(QQC){
 
   peps <- QQC@matricies@peptide
@@ -886,8 +908,8 @@ ImputationComparison <- function(QQC, cluster = 1){
 
 
 
-  prot_imp <- QQC@protein.imputed
-  prot_noimp <- QQC@protein
+  prot_imp <- QQC@matricies@protein.imputed
+  prot_noimp <- QQC@matricies@protein
 
 
   prot_imp <- reshape2::melt(prot_imp)

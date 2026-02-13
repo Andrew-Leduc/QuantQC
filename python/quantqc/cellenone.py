@@ -84,15 +84,17 @@ def _analyze_cellenone_tmt(cells_file: dict[str, str], plex: int) -> pd.DataFram
         frames.append(df)
     cells = pd.concat(frames, ignore_index=True)
 
-    # Filter out Transmission/Blue/Green rows
+    # Filter out Transmission/Blue/Green rows (R: fill(2:7, .direction="up"))
+    green_df = None
     if "X" in cells.columns:
         cells.loc[cells["X"].astype(str).str.contains("Transmission", na=False), "X"] = np.nan
-        cells = cells.ffill()
+        # Backward fill (upward) on all columns EXCEPT X, matching R's fill(2:7, .direction="up")
+        fill_cols = [c for c in cells.columns if c != "X"]
+        cells[fill_cols] = cells[fill_cols].bfill()
         cells = cells.dropna(subset=["XPos"])
         if (cells["X"] == "Blue").any():
             cells.loc[cells["X"] == "Blue", "X"] = np.nan
             cells = cells.dropna(subset=["X"])
-        green_df = None
         if (cells["X"] == "Green").any():
             idx = list(range(1, len(cells), 2))
             green_df = cells.iloc[idx].copy()
@@ -204,6 +206,23 @@ def _analyze_cellenone_tmt(cells_file: dict[str, str], plex: int) -> pd.DataFram
     result["plate"] = 1
     result["ID"] = result["injectWell"].astype(str) + result["plate"].astype(str) + result["label"].astype(str)
 
+    # Join green fluorescence stain data back if present
+    if green_df is not None:
+        result["match_stain"] = (
+            "F" + result["field"].astype(str)
+            + "X" + result["dropXPos"].astype(str)
+            + "Y" + result["dropYPos"].astype(str)
+        )
+        green_df["match_stain"] = (
+            "F" + green_df["Field"].astype(str)
+            + "X" + green_df["XPos"].astype(str)
+            + "Y" + green_df["YPos"].astype(str)
+        )
+        green_small = green_df[["match_stain", "Intensity", "Diameter"]].copy()
+        green_small = green_small.rename(columns={"Diameter": "Stain_Diameter"})
+        result = result.merge(green_small, on="match_stain", how="left")
+        result = result.drop(columns=["match_stain"])
+
     return result
 
 
@@ -223,7 +242,9 @@ def _analyze_cellenone_mtraq(cells_file: dict[str, str], plex: int) -> pd.DataFr
     if "X" in cells.columns:
         cells = cells[~cells["X"].isin(["Green", "0"])]
         cells.loc[cells["X"].astype(str).str.contains("Transmission", na=False), "X"] = np.nan
-        cells = cells.ffill()
+        # Backward fill (upward) on all columns EXCEPT X, matching R's fill(2:7, .direction="up")
+        fill_cols = [c for c in cells.columns if c != "X"]
+        cells[fill_cols] = cells[fill_cols].bfill()
         cells = cells.dropna(subset=["XPos"])
         cells = cells[cells["YPos"] < 69]
 
@@ -340,7 +361,10 @@ def link_cellenone_raw(qqc: QQC, cells_file: dict[str, str]) -> QQC:
     peptide_cols = qqc.matrices.peptide_cols
     cell_ids = pd.DataFrame({"ID": peptide_cols})
 
-    co_small = co_data[["ID", "diameter", "sample", "label", "injectWell", "plate"]].drop_duplicates(subset="ID")
+    base_cols = ["ID", "diameter", "sample", "label", "injectWell", "plate"]
+    if "Intensity" in co_data.columns:
+        base_cols += ["Intensity", "Stain_Diameter"]
+    co_small = co_data[[c for c in base_cols if c in co_data.columns]].drop_duplicates(subset="ID")
     cell_ids = cell_ids.merge(co_small, on="ID", how="left")
     cell_ids["sample"] = cell_ids["sample"].fillna("neg")
     cell_ids["prot_total"] = np.log2(np.nansum(peptide_mat, axis=0))

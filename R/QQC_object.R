@@ -76,15 +76,19 @@ matricies_Miceotopes <- setClass(
 )
 
 
-#' MaxQuant to QQC
+#' Import MaxQuant evidence file and create a QQC object for DDA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Reads a MaxQuant evidence.txt file (or a directory of such files), joins it
+#' with a sample-to-well linker file, filters by PEP and PIF thresholds,
+#' removes reverse hits, parses protein accessions, and constructs a QQC
+#' object ready for downstream processing.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param data_path Path to an evidence.txt file or a directory containing multiple evidence files.
+#' @param linker Path to a CSV linker file mapping \code{Run} names to well and plate metadata.
+#' @param plex Integer TMT plex size (e.g., \code{14}, \code{29}, or \code{32}).
+#' @param PIF_in Numeric minimum precursor ion fraction (PIF) threshold.
+#' @param PEP_in Numeric maximum posterior error probability (PEP) threshold.
+#' @return A QQC object with \code{raw_data}, \code{meta.data}, \code{ms_type = "DDA"}, and plex information.
 #' @export
 MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
 
@@ -185,15 +189,19 @@ MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
 }
 
 
-#' Add two numbers.
+#' Import DIA-NN output and create a QQC object for DIA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Reads a DIA-NN report file (TSV or Parquet, single file or directory),
+#' joins it with a sample-to-well linker, filters by library protein group
+#' Q-value, extracts the mTRAQ plex channel from precursor IDs, and
+#' constructs a QQC object for downstream processing.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param data_path Path to a DIA-NN report file or a directory of report files (TSV or Parquet).
+#' @param linker_path Path to a CSV linker file mapping \code{Run} names to well and plate metadata.
+#' @param plex Integer plex size (e.g., \code{2} or \code{3} for mTRAQ channels).
+#' @param carrier Logical; if \code{TRUE}, sets the MS type to \code{"DIA_C"} (carrier-assisted DIA).
+#'   Default \code{FALSE}.
+#' @return A QQC object with \code{raw_data}, \code{meta.data}, \code{ms_type}, and plex information.
 #' @export
 DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
@@ -277,15 +285,19 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
 
 
-#' Add two numbers.
+#' Import JMOD Parquet output and create a QQC object for DIA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Reads a JMOD-format Parquet file, renames columns to the standard DIA-NN
+#' schema, joins with a sample-to-well linker, and constructs a QQC object.
+#' This importer is intended for data processed with the JMOD pipeline as
+#' an alternative to DIA-NN.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param data_path Path to a JMOD Parquet file.
+#' @param linker_path Path to a CSV linker file mapping \code{Run} names to well and plate metadata.
+#' @param plex Integer plex size (e.g., \code{2} or \code{3} for mTRAQ channels).
+#' @param carrier Logical; if \code{TRUE}, sets the MS type to \code{"DIA_C"} (carrier-assisted DIA).
+#'   Default \code{FALSE}.
+#' @return A QQC object with \code{raw_data}, \code{meta.data}, \code{ms_type}, and plex information.
 #' @export
 JMOD_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
@@ -381,15 +393,18 @@ JMOD_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
 
 
-#' Fragpipe to QQC
+#' Import FragPipe PSM output and create a QQC object for DDA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Reads PSM files from FragPipe output directories, renames columns to match
+#' the MaxQuant-style schema used internally, maps TMT reporter ion channels,
+#' joins with a sample-to-well linker, filters by purity (PIF), and
+#' constructs a QQC object ready for downstream processing.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param data_path Path to a FragPipe results directory containing per-experiment subdirectories with \code{psm.tsv} files.
+#' @param linker Path to a CSV linker file mapping \code{Run} names to well and plate metadata.
+#' @param plex Integer TMT plex size (currently supports \code{32}).
+#' @param PIF_in Numeric minimum purity (PIF) threshold.
+#' @return A QQC object with \code{raw_data}, \code{meta.data}, \code{ms_type = "DDA"}, and plex information.
 #' @export
 FragPipe_to_QQC <- function(data_path,linker,plex ,PIF_in){
 

@@ -29,7 +29,7 @@ extract_accession <- function(input_string) {
 inSet_norm <- function(Raw_data, cellenOne_meta){
   count = 0
 
-  for(i in unique(paste0(cellenONE_meta$injectWell))){
+  for(i in unique(paste0(cellenOne_meta$injectWell))){
 
     set <- Raw_data[,which(grepl(i,colnames(Raw_data)))]
 

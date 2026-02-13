@@ -285,9 +285,11 @@ def plot_cell_size_vs_intensity(qqc: QQC, type_: str = "sample") -> plt.Figure:
 
     vol = np.log2((meta["diameter"].astype(float) / 2) ** 3)
     intens = np.log2(10 ** meta["prot_total"].astype(float))
+    # Pairwise complete observations (matching R's use='pairwise.complete.obs')
+    valid = meta["diameter"].astype(float).notna() & meta["prot_total"].astype(float).notna()
     corr = round(float(np.corrcoef(
-        meta["diameter"].astype(float).dropna(),
-        meta["prot_total"].astype(float).dropna()
+        meta.loc[valid, "diameter"].astype(float),
+        meta.loc[valid, "prot_total"].astype(float)
     )[0, 1]), 2)
 
     fig, ax = plt.subplots(figsize=(8, 6))

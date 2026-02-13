@@ -13,7 +13,7 @@ link_manual_Raw <- function(QQC){
   linker <- QQC@meta.data
 
 
-  linker <- melt(linker, ids = c('Run','well','plate'))
+  linker <- reshape2::melt(linker, ids = c('Run','well','plate'))
 
 
 

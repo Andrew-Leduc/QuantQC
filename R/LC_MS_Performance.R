@@ -1,14 +1,13 @@
 ### Statistics for LC/MS QC in order samples run
 
-#' test2.
+#' Calculate run-order statistics for LC/MS performance monitoring.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Computes per-run quality metrics (precursor IDs, intensity drift, retention
+#' time drift) across the injection order. Dispatches to DDA- or DIA-specific
+#' implementations based on the MS type stored in the QQC object.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated \code{raw_data} and \code{ms_type} slots.
+#' @return The QQC object with the \code{run_order.statistics} slot populated.
 #' @export
 Calculate_run_order_statistics <- function(QQC){
 
@@ -23,15 +22,18 @@ Calculate_run_order_statistics <- function(QQC){
 
 }
 
-#' Add two numbers.
+#' Calculate run-order statistics for DDA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Computes per-run metrics across LC/MS injection order for DDA experiments,
+#' including the number of precursor IDs, mean MS1 intensity drift (log2
+#' normalized to the first run), mean MS2 reporter intensity drift, and
+#' retention time mean and standard deviation drift.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with DDA \code{raw_data} containing columns such as
+#'   \code{seqcharge}, \code{Order}, \code{Intensity}, \code{Reporter.intensity.1},
+#'   and \code{Retention.time}.
+#' @return The QQC object with the \code{run_order.statistics} slot populated as a list
+#'   of four data frames: precursor IDs, MS1 means, MS2 means, and RT statistics.
 #' @export
 Calculate_run_order_statistics_DDA <- function(QQC){
 
@@ -80,15 +82,17 @@ Calculate_run_order_statistics_DDA <- function(QQC){
   return(QQC)
 }
 
-#' Add two numbers.
+#' Calculate run-order statistics for DIA data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Computes per-run metrics across LC/MS injection order for DIA experiments,
+#' including the number of precursor IDs, total MS1 area (normalized to the
+#' first run), total precursor quantity (normalized to the first run), and
+#' retention time mean and standard deviation.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with DIA \code{raw_data} containing columns such as
+#'   \code{Order}, \code{Ms1.Area}, \code{Precursor.Quantity}, and \code{RT}.
+#' @return The QQC object with the \code{run_order.statistics} slot populated as a list
+#'   of four data frames: precursor IDs, MS1 means, MS2 means, and RT statistics.
 #' @export
 Calculate_run_order_statistics_DIA <- function(QQC){
 
@@ -124,15 +128,16 @@ Calculate_run_order_statistics_DIA <- function(QQC){
   return(QQC)
 }
 
-#' Add two numbers.
+#' Plot intensity drift across LC/MS run order.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates a three-panel plot showing how precursor identification counts,
+#' MS1 intensity, and MS2 intensity change across consecutive LC/MS runs.
+#' Useful for diagnosing instrument performance degradation over time.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{run_order.statistics} slot
+#'   (from \code{Calculate_run_order_statistics}).
+#' @return A patchwork composite of three ggplot panels: precursor IDs, MS1 intensity,
+#'   and MS2 intensity versus run order.
 #' @export
 PlotIntensityDrift <- function(QQC){
 
@@ -151,15 +156,16 @@ PlotIntensityDrift <- function(QQC){
   IDs/MS1/MS2
 }
 
-#' Add two numbers.
+#' Plot retention time drift across LC/MS run order.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates a two-panel plot showing how mean retention time and retention
+#' time standard deviation change across consecutive LC/MS runs. Useful for
+#' monitoring chromatographic stability over the course of an experiment.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{run_order.statistics} slot
+#'   (from \code{Calculate_run_order_statistics}).
+#' @return A patchwork composite of two ggplot panels: mean RT drift and RT
+#'   standard deviation versus run order.
 #' @export
 PlotRTDrift <- function(QQC){
 

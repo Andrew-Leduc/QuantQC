@@ -3,15 +3,18 @@
 #####
 
 
-#' Add two numbers.
+#' Construct the cell-by-peptide quantification matrix.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Creates a cell-by-peptide matrix from the raw data stored in the QQC object.
+#' For DIA/DIA_C data, applies quality-value filters and reshapes precursor
+#' quantification into a matrix. For DDA data, performs TMT reference channel
+#' normalization and reshapes reporter ion intensities.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated \code{raw_data} and \code{ms_type} slots.
+#' @param TQVal Numeric translated Q-value threshold for DIA filtering. Default \code{1} (no filter).
+#' @param chQVal Numeric channel Q-value threshold for DIA filtering. Default \code{1} (no filter).
+#' @return The QQC object with the \code{matricies} slot populated with the peptide matrix
+#'   and peptide-protein map.
 #' @export
 cellXpeptide <- function(QQC, TQVal = 1, chQVal = 1){
 
@@ -27,15 +30,16 @@ cellXpeptide <- function(QQC, TQVal = 1, chQVal = 1){
 }
 
 
-#' Add two numbers.
+#' Normalize DDA data by TMT reference channel and build peptide matrix.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Divides reporter ion intensities by the reference channel, reshapes the data
+#' into a cell-by-peptide matrix, and stores the result along with the
+#' peptide-protein mapping in the QQC object. Supports TMTpro 14-plex, 29-plex,
+#' and 32-plex labeling schemes.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with DDA \code{raw_data} and the TMT plex number stored in \code{misc[['plex']]}.
+#' @return The QQC object with the \code{matricies} slot populated with the reference-normalized
+#'   peptide matrix and peptide-protein map.
 #' @export
 TMT_Reference_channel_norm <- function(QQC){
 
@@ -115,15 +119,19 @@ TMT_Reference_channel_norm <- function(QQC){
 # mTRAQ Processing
 #####
 
-#' Add two numbers.
+#' Construct the cell-by-peptide matrix for DIA (mTRAQ/plexDIA) data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Filters raw DIA data by translated Q-value and channel Q-value thresholds,
+#' reshapes MS1 area into a cell-by-peptide matrix, and optionally normalizes
+#' single-cell channels by the carrier channel. Also constructs a peptide mask
+#' matrix from the unfiltered data for downstream completeness analysis.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with DIA \code{raw_data}.
+#' @param TQVal Numeric translated Q-value threshold for filtering.
+#' @param chQVal Numeric channel Q-value threshold for filtering.
+#' @param carrier_norm Logical; if \code{TRUE}, normalize single-cell channels by the carrier channel. Default \code{TRUE}.
+#' @return The QQC object with the \code{matricies} slot populated with the peptide matrix,
+#'   peptide mask, and peptide-protein map.
 #' @export
 cellXpeptide_DIA <- function(QQC,TQVal, chQVal, carrier_norm = T){
 
@@ -199,15 +207,16 @@ cellXpeptide_DIA <- function(QQC,TQVal, chQVal, carrier_norm = T){
 
 
 
-#' Add two numbers.
+#' Remove multiplexed sets where the carrier channel is not sufficiently larger than single cells.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For each multiplexed set, checks whether the carrier channel (label 8) has a
+#' median intensity at least 3-fold greater than each single-cell channel.
+#' Sets that fail this check are removed from the data frame, as a carrier that
+#' is not larger than the single cells indicates a sample preparation problem.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param df A data frame of quantification values with column names encoding file and plex channel.
+#' @param files A character vector of unique file identifiers to evaluate.
+#' @return A list of two elements: the filtered file vector and the filtered data frame.
 #' @export
 remove_sets_carrier_lessthan_SCs <- function(df,files){
   files_remove <- c()
@@ -264,15 +273,19 @@ remove_sets_carrier_lessthan_SCs <- function(df,files){
 
 }
 
-#' Add two numbers.
+#' Normalize DIA single-cell channels by the carrier channel.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Divides each single-cell channel by its corresponding carrier channel within
+#' each multiplexed set. Sets where any single-cell channel has a higher median
+#' intensity than the carrier are flagged and removed, as this indicates a
+#' sample preparation failure.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param Raw_data_lim.d A data frame with columns \code{Protein.Group}, \code{seqcharge},
+#'   and quantification columns named by file and plex channel suffix.
+#' @param carrier_CH The numeric or character suffix identifying the carrier channel (e.g., \code{8}).
+#' @param plex_used A numeric vector of plex channel suffixes used in the experiment.
+#' @return The carrier-normalized data frame with problematic sets removed and
+#'   Inf/0 values set to NA.
 #' @export
 DIA_carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
 
@@ -329,15 +342,17 @@ DIA_carrier_norm <- function(Raw_data_lim.d,carrier_CH,plex_used){
 #General Proc
 #####
 
-#' Add two numbers.
+#' Impute missing protein values using k-nearest neighbors.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Performs KNN imputation on the protein-level matrix stored in the QQC object.
+#' For each missing value, the k most similar cells (by Euclidean distance) that
+#' have a measured value for that protein are identified, and the mean of those
+#' values is used as the imputed value. The imputed matrix is then normalized
+#' using reference-vector normalization in log space.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{matricies@@protein} slot.
+#' @param k Integer number of nearest neighbors to use for imputation. Default \code{3}.
+#' @return The QQC object with the \code{matricies@@protein.imputed} slot populated.
 #' @export
 KNN_impute<-function(QQC, k = 3){
 
@@ -445,15 +460,17 @@ MinValue_impute <- function(QQC){
 
 
 
-#' Add two numbers.
+#' Normalize a matrix using column-wise reference-vector normalization.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Performs two-step normalization on a numeric matrix. First, each column is
+#' scaled so that the median ratio of the column to the row-wise median reference
+#' vector equals one (column normalization). Then each row is divided by its
+#' mean (row normalization to relative abundance). Optionally log2-transforms
+#' the result.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param dat A numeric matrix of quantification values. Zeros are treated as missing.
+#' @param log Logical; if \code{TRUE}, the normalized matrix is log2-transformed. Default \code{FALSE}.
+#' @return The normalized (and optionally log2-transformed) matrix.
 #' @export
 Normalize_reference_vector <- function(dat,log = F){
   dat <- as.matrix(dat)
@@ -473,15 +490,15 @@ Normalize_reference_vector <- function(dat,log = F){
 }
 
 
-#' Add two numbers.
+#' Normalize a log-transformed matrix using additive reference-vector normalization.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Performs two-step normalization on a matrix already in log space. First, each
+#' column is shifted by the median difference between the column and the row-wise
+#' median reference vector (additive column normalization). Then each row is
+#' centered by subtracting its mean (row normalization to relative abundance).
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param dat A numeric matrix of log-transformed quantification values.
+#' @return The normalized matrix in log space.
 #' @export
 Normalize_reference_vector_log <- function(dat){
   dat <- as.matrix(dat)
@@ -498,15 +515,23 @@ Normalize_reference_vector_log <- function(dat){
 
 
 
-#' Add two numbers.
+#' Collapse peptide-level data to protein-level quantification.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Aggregates the peptide matrix to the protein level. When \code{opt = 1}, peptides
+#' are normalized, then collapsed by taking the median of peptides mapping to
+#' each protein. When \code{opt = 2}, MaxLFQ (via the \code{diann} package) is used
+#' for protein quantification. The function also stores absolute (unnormalized)
+#' protein abundances and, for DIA data, a protein-level observation mask.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated peptide matrix and peptide-protein map.
+#' @param opt Integer method option: \code{1} for median-based collapse with reference
+#'   normalization, \code{2} for MaxLFQ-based collapse.
+#' @param LC_correct Logical; if \code{TRUE}, applies LC batch correction to peptide data
+#'   before collapsing (DIA only, opt 1). Default \code{FALSE}.
+#' @param norm Character normalization method: \code{"ref"} for reference-vector
+#'   normalization (default) or \code{"std"} for standard normalization.
+#' @return The QQC object with \code{matricies@@protein}, \code{matricies@@protein_abs},
+#'   and (for DIA) \code{matricies@@protein_mask} slots populated.
 #' @export
 CollapseToProtein <- function(QQC, opt, LC_correct = F ,norm = 'ref'){
 
@@ -632,7 +657,7 @@ CollapseToProtein <- function(QQC, opt, LC_correct = F ,norm = 'ref'){
 
 
   if(opt == 2){
-    library(diann)
+    if (!requireNamespace("diann", quietly = TRUE)) stop("Package 'diann' is required for opt==2. See https://github.com/vdemichev/diann-rpackage")
     #Max LFQ protein level
 
     sc.data <- QQC@raw_data
@@ -679,15 +704,22 @@ CollapseToProtein <- function(QQC, opt, LC_correct = F ,norm = 'ref'){
 
 
 
-#' Add two numbers.
+#' Remove batch effects from protein-level data.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Applies batch correction to the imputed protein matrix using \code{limma::removeBatchEffect}
+#' or \code{sva::ComBat}, depending on which batch sources are specified. Supported
+#' batch sources include TMT label position, LC/MS run (inject well), and
+#' user-defined batch groups. After correction, the matrix is re-normalized and
+#' the unimputed positions are restored as NA.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated \code{matricies@@protein.imputed},
+#'   \code{matricies@@protein}, and \code{meta.data} slots.
+#' @param labels Logical; correct for TMT label position bias. Default \code{TRUE}.
+#' @param run Logical; correct for LC/MS run (inject well) effects. Default \code{TRUE}.
+#' @param batch Logical; correct for user-defined batch groups (\code{LCMS_Batch} column in meta.data). Default \code{FALSE}.
+#' @param norm Character normalization method after batch correction: \code{"ref"} (default) or \code{"std"}.
+#' @return The QQC object with batch-corrected \code{matricies@@protein.imputed} and
+#'   \code{matricies@@protein} slots.
 #' @export
 BatchCorrect <- function(QQC, labels = T, run = T, batch = F, norm = 'ref'){
 

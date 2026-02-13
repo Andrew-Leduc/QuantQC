@@ -1,14 +1,15 @@
 
 
-#' Add two numbers.
+#' Evaluate negative controls in a QQC object.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Computes quality metrics comparing single cells to negative controls.
+#' Dispatches to DDA or DIA-specific evaluation depending on the MS type
+#' stored in the QQC object. For DDA data, coefficient of variation (CV)
+#' analysis is performed; for DIA data, peptide counts are compared between
+#' single cells and negative controls.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with populated \code{meta.data} and \code{raw_data} or \code{matricies} slots.
+#' @return The QQC object with the \code{neg_ctrl.info} slot populated with negative control evaluation results.
 #' @export
 EvaluateNegativeControls <- function(QQC){
 
@@ -240,15 +241,16 @@ EvaluateNegativeControls_DIA <- function(QQC){
 
 
 
-#' Add two numbers.
+#' Plot negative control evaluation results.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Generates diagnostic plots comparing single cells to negative controls.
+#' For DDA data, produces a combined plot of intensity distributions and a
+#' density plot of median protein CVs with an annotated CV threshold. For DIA
+#' data, produces a histogram of log10 intensity distributions.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{neg_ctrl.info} slot (from \code{EvaluateNegativeControls}).
+#' @param CV_thresh Numeric CV threshold used to separate good cells from failed cells (DDA only).
+#' @return A ggplot object displaying the negative control diagnostic plots.
 #' @export
 PlotNegCtrl <- function(QQC,CV_thresh){
 
@@ -267,14 +269,14 @@ PlotNegCtrl <- function(QQC,CV_thresh){
 
     cvs <- ggplot(data=plot_data, aes(x=cvq,fill=value)) + geom_density( alpha=0.5,adjust=1.5) + dot_plot+
       scale_fill_manual(values=my_col3) +
-      xlab("CV, peptides from same protein") + ylab("Fraction of cells") + rremove("y.ticks") + rremove("y.text") +
+      xlab("CV, peptides from same protein") + ylab("Fraction of cells") + theme(axis.ticks.y = element_blank(), axis.text.y = element_blank()) +
       coord_cartesian(xlim=c(.1,.65))+
       annotate("text", x=0.2, y= 14, label=paste0(sum(CV_mat_pos$cvq < CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
       annotate("text", x=0.64, y= 12, label=paste0(sum(CV_mat_neg$cvq > CV_thresh,na.rm = T)," Ctr -"), size=10, color=my_col3[c(2)])+
       annotate("text", x=0.63, y= 14, label=paste0(sum(CV_mat_pos$cvq > CV_thresh)," cells"), size=10, color=my_col3[c(1)])+
       annotate("text", x=0.2, y= 12, label=paste0((sum(CV_mat_neg$cvq < CV_thresh,na.rm = T)-1)," Ctr -"), size=10, color=my_col3[c(2)])+
       ggtitle('Min 3 proteins w/ many peps')+
-      rremove("legend") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
+      theme(legend.position = "none") + geom_vline(xintercept=CV_thresh, lty=2, size=2, color="gray50") + theme(plot.margin = margin(1, 1, 0, 1, "cm"))
 
 
     return(peps+cvs)
@@ -290,15 +292,17 @@ PlotNegCtrl <- function(QQC,CV_thresh){
 
 }
 
-#' Add two numbers.
+#' Filter out low-quality cells from a QQC object.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Removes cells that fail quality thresholds based on negative control evaluation.
+#' For DIA data, cells are filtered by a minimum log10 intensity threshold.
+#' For DDA data, cells are filtered by both a CV threshold and an optional
+#' minimum intensity threshold. Negative controls are always removed.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object with a populated \code{neg_ctrl.info} slot.
+#' @param CV_thresh Numeric CV threshold; cells with CVs above this value are removed (DDA only). Default \code{NA}.
+#' @param min_intens Numeric minimum log10 intensity threshold; cells below this are removed. Default \code{NA}.
+#' @return The QQC object with the peptide matrix (and peptide mask for DIA) filtered to retain only passing cells.
 #' @export
 FilterBadCells <- function(QQC, CV_thresh = NA, min_intens = NA){
 
@@ -335,15 +339,15 @@ FilterBadCells <- function(QQC, CV_thresh = NA, min_intens = NA){
 }
 
 
-#' Add two numbers.
+#' Trim excess peptides per protein to the top five.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' For each protein with more than five mapped peptides, retains up to five
+#' peptides selected by the intersection of those ranked highest by median
+#' intensity and those ranked highest by observation count. This reduces
+#' redundancy while keeping the most informative peptides per protein.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param QQC A QQC object whose \code{matricies} slot contains the peptide matrix and peptide-protein map.
+#' @return The QQC object with the peptide matrix and peptide-protein map trimmed to the selected peptides.
 #' @export
 Trim_extra_peptides <- function(QQC){
   peptide_data <- QQC@matricies@peptide
@@ -399,15 +403,16 @@ Trim_extra_peptides <- function(QQC){
 }
 
 
-#' Add two numbers.
+#' Filter a matrix by maximum allowed missingness in rows and columns.
 #'
-#' This function takes two numeric inputs and returns their sum.
+#' Removes columns (cells) and then rows (features) that exceed the specified
+#' fraction of missing (NA) values. Column filtering is applied first, followed
+#' by row filtering on the reduced matrix.
 #'
-#' @param x A numeric value.
-#' @param y A numeric value.
-#' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add_numbers(2, 3)
+#' @param mat A numeric matrix to filter.
+#' @param pct.r Maximum allowed fraction of NA values per row (0 to 1).
+#' @param pct.c Maximum allowed fraction of NA values per column (0 to 1).
+#' @return The filtered matrix with rows and columns exceeding the missingness thresholds removed.
 #' @export
 filt.mat.cr<-function(mat, pct.r,pct.c){
 
