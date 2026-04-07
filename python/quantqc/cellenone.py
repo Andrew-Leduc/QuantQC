@@ -88,8 +88,11 @@ def _analyze_cellenone_tmt(cells_file: dict[str, str], plex: int) -> pd.DataFram
     green_df = None
     if "X" in cells.columns:
         cells.loc[cells["X"].astype(str).str.contains("Transmission", na=False), "X"] = np.nan
-        # Backward fill (upward) on all columns EXCEPT X, matching R's fill(2:7, .direction="up")
-        fill_cols = [c for c in cells.columns if c != "X"]
+        # R's fill(2:7) fills only the first 6 non-X columns (Diameter, Elongation, etc.)
+        # XPos and YPos are later columns (8, 9) in the CellenONE file so R does NOT fill them.
+        # Transmission rows therefore keep NaN XPos and get correctly removed by drop_na(XPos).
+        # In Python we must explicitly exclude XPos and YPos from bfill to match this behaviour.
+        fill_cols = [c for c in cells.columns if c not in ("X", "XPos", "YPos")]
         cells[fill_cols] = cells[fill_cols].bfill()
         cells = cells.dropna(subset=["XPos"])
         if (cells["X"] == "Blue").any():
@@ -240,10 +243,12 @@ def _analyze_cellenone_mtraq(cells_file: dict[str, str], plex: int) -> pd.DataFr
     cells = pd.concat(frames, ignore_index=True)
 
     if "X" in cells.columns:
-        cells = cells[~cells["X"].isin(["Green", "0"])]
+        # Drop fluorescence channel rows — we only want bright-field (Diameter/XPos/YPos)
+        cells = cells[~cells["X"].isin(["Green", "Blue", "0"])]
         cells.loc[cells["X"].astype(str).str.contains("Transmission", na=False), "X"] = np.nan
-        # Backward fill (upward) on all columns EXCEPT X, matching R's fill(2:7, .direction="up")
-        fill_cols = [c for c in cells.columns if c != "X"]
+        # Exclude XPos/YPos from bfill — R's fill(2:7) doesn't reach those columns,
+        # so Transmission rows retain NaN XPos and are dropped by drop_na(XPos).
+        fill_cols = [c for c in cells.columns if c not in ("X", "XPos", "YPos")]
         cells[fill_cols] = cells[fill_cols].bfill()
         cells = cells.dropna(subset=["XPos"])
         cells = cells[cells["YPos"] < 69]
@@ -281,12 +286,18 @@ def _analyze_cellenone_mtraq(cells_file: dict[str, str], plex: int) -> pd.DataFr
     # Merge label with cells via xyf
     cells["xyf"] = cells["XPos"].astype(str) + cells["YPos"].astype(str) + cells["Field"].astype(str)
     label["xyf"] = label["xPos"].astype(str) + label["yPos"].astype(str) + label["field"].astype(str)
-    iso_lab = cells.merge(label[["xyf", "well"]], on="xyf", how="left")
+    iso_lab = cells.merge(label[["xyf", "well", "xPos", "yPos"]], on="xyf", how="left")
 
-    # ANN for pickup
+    # ANN for pickup — match R: use label's xPos/yPos (from the xyf merge) as targets,
+    # not the cell drop positions. This mirrors R's isoLab[, c("xPos","yPos")] which
+    # refers to the label-file coordinates carried into isoLab after the left_join.
     pickup_xy = pickup[["xPos", "yPos"]].drop_duplicates().reset_index(drop=True)
     nn = NearestNeighbors(n_neighbors=1).fit(pickup_xy.values.astype(float))
-    _, indices = nn.kneighbors(iso_lab[["XPos", "YPos"]].values.astype(float))
+    ann_coords = iso_lab[["xPos", "yPos"]].values.astype(float)
+    # Fall back to cell drop coords for rows where label didn't match (xPos/yPos is NaN)
+    no_label = np.isnan(ann_coords[:, 0]) | np.isnan(ann_coords[:, 1])
+    ann_coords[no_label] = iso_lab.loc[no_label, ["XPos", "YPos"]].values.astype(float)
+    _, indices = nn.kneighbors(ann_coords)
     iso_lab["pickupX"] = pickup_xy.iloc[indices.ravel()]["xPos"].values
     iso_lab["pickupY"] = pickup_xy.iloc[indices.ravel()]["yPos"].values
 
@@ -325,7 +336,19 @@ def _analyze_cellenone_mtraq(cells_file: dict[str, str], plex: int) -> pd.DataFr
     result["plate"] = np.where(result["field"].astype(float) > 8, 2, 1)
 
     # mTRAQ tag assignment
-    result["label"] = pd.to_numeric(result["label"], errors="coerce")
+    # Keep original numeric position (1-12) for sorting BEFORE tag mapping,
+    # matching R's arrange(wellAlph, wellNum, label) before distinct(ID).
+    result["_orig_label"] = pd.to_numeric(result["label"], errors="coerce")
+
+    # Sort by inject well (alpha then numeric part) then by original position number.
+    # This ensures distinct/drop_duplicates picks the same representative cell as R.
+    result["_well_alpha"] = result["injectWell"].astype(str).str.extract(r"^([A-Za-z]+)")[0]
+    result["_well_num"] = pd.to_numeric(
+        result["injectWell"].astype(str).str.extract(r"(\d+)$")[0], errors="coerce"
+    )
+    result = result.sort_values(["_well_alpha", "_well_num", "_orig_label"]).reset_index(drop=True)
+    result = result.drop(columns=["_well_alpha", "_well_num", "_orig_label"])
+
     if plex == 2:
         tag_map = {1: "0", 3: "0", 5: "0", 7: "0", 2: "4", 4: "4", 6: "4", 8: "4"}
     else:  # plex == 3
@@ -334,7 +357,7 @@ def _analyze_cellenone_mtraq(cells_file: dict[str, str], plex: int) -> pd.DataFr
             2: "4", 5: "4", 8: "4", 11: "4",
             3: "8", 6: "8", 9: "8", 12: "8",
         }
-    result["label"] = result["label"].map(tag_map)
+    result["label"] = pd.to_numeric(result["label"], errors="coerce").map(tag_map)
 
     result["ID"] = (
         result["injectWell"].astype(str)
@@ -367,13 +390,27 @@ def link_cellenone_raw(qqc: QQC, cells_file: dict[str, str]) -> QQC:
     co_small = co_data[[c for c in base_cols if c in co_data.columns]].drop_duplicates(subset="ID")
     cell_ids = cell_ids.merge(co_small, on="ID", how="left")
     cell_ids["sample"] = cell_ids["sample"].fillna("neg")
+    # Empty drops (diameter == 0) are negative controls even if they matched a CellenONE entry
+    cell_ids.loc[cell_ids["diameter"] == 0, "sample"] = "neg"
     cell_ids["prot_total"] = np.log2(np.nansum(peptide_mat, axis=0))
 
     linker = qqc.meta_data.copy()
-    cell_ids["WP"] = cell_ids["plate"].astype(str) + cell_ids["injectWell"].astype(str)
-    linker["WP"] = linker["plate"].astype(str) + linker["Well"].astype(str)
+    cell_ids["WP"] = pd.to_numeric(cell_ids["plate"], errors="coerce").astype("Int64").astype(str) + cell_ids["injectWell"].astype(str)
+    linker["WP"] = pd.to_numeric(linker["plate"], errors="coerce").astype("Int64").astype(str) + linker["Well"].astype(str)
     cell_ids = cell_ids.merge(linker, on="WP", how="left", suffixes=("", "_linker"))
     cell_ids = cell_ids.drop(columns=["WP"], errors="ignore")
+
+    # Fallback: if Order/Run are all NaN the WP join failed (linker Well != injectWell).
+    # Derive Order via raw_data: ID → Run → Order
+    if "Order" not in cell_ids.columns or cell_ids["Order"].isna().all():
+        if "Run" in linker.columns and "Order" in linker.columns and "ID" in qqc.raw_data.columns:
+            id_run_order = (
+                qqc.raw_data[["ID", "Run"]]
+                .drop_duplicates()
+                .merge(linker[["Run", "Order"]], on="Run", how="left")
+            )
+            cell_ids = cell_ids.drop(columns=["Order"], errors="ignore")
+            cell_ids = cell_ids.merge(id_run_order[["ID", "Order"]], on="ID", how="left")
 
     qqc.cellenone_meta = co_data
     qqc.meta_data = cell_ids

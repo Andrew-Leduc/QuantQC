@@ -117,15 +117,17 @@ def plot_pep_cor(qqc: QQC, type_: str = "box") -> plt.Figure:
         ax.axhline(null_dist, color="red", lw=1)
         ax.set_xlabel("Mean abs(protein fold change)")
         ax.set_ylabel("Cor.; peptides mapping to protein")
+        ax.set_ylim(-0.4, 1)
         # Annotate counts
         for i, fc in enumerate(fc_vals):
             n = len(pep_cor[pep_cor["FC"] == fc])
-            ax.text(i + 1, ax.get_ylim()[1] * 0.95, str(n), ha="center", color="blue")
+            ax.text(i + 1, 0.95, str(n), ha="center", color="blue")
     elif type_ == "hist":
         ax.hist(pep_cor["Cor"].dropna(), bins=30, color="gray", edgecolor="black")
         ax.axvline(null_dist, color="red", lw=1)
         ax.set_xlabel("Correlation; peptides mapping to protein")
         ax.set_ylabel("# Proteins")
+        ax.set_xlim(-0.4, 1)
 
     dot_plot_style(ax)
     fig.tight_layout()
@@ -283,13 +285,18 @@ def plot_cell_size_vs_intensity(qqc: QQC, type_: str = "sample") -> plt.Figure:
     good_cells = qqc.matrices.peptide_cols
     meta = meta[meta["ID"].isin(good_cells)]
 
+    # prot_total is stored as log2(sum of raw intensities); use directly as the Y axis.
+    # R stores the same way: log2(colSums(peptide_data)) and plots as log2(10^prot_total)
+    # only because the R peptide matrix is on a log10 scale after normalisation.
+    # In Python the matrix is on a log2 scale, so prot_total is already log2(sum).
     vol = np.log2((meta["diameter"].astype(float) / 2) ** 3)
-    intens = np.log2(10 ** meta["prot_total"].astype(float))
-    # Pairwise complete observations (matching R's use='pairwise.complete.obs')
-    valid = meta["diameter"].astype(float).notna() & meta["prot_total"].astype(float).notna()
+    intens = meta["prot_total"].astype(float)
+
+    # Correlation: match R's cor(diameter, prot_total, use='pairwise.complete.obs')
+    valid = meta["diameter"].astype(float).notna() & intens.notna()
     corr = round(float(np.corrcoef(
         meta.loc[valid, "diameter"].astype(float),
-        meta.loc[valid, "prot_total"].astype(float)
+        intens[valid]
     )[0, 1]), 2)
 
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -298,7 +305,7 @@ def plot_cell_size_vs_intensity(qqc: QQC, type_: str = "sample") -> plt.Figure:
         for s in meta["sample"].unique():
             sub = meta[meta["sample"] == s]
             v = np.log2((sub["diameter"].astype(float) / 2) ** 3)
-            it = np.log2(10 ** sub["prot_total"].astype(float))
+            it = sub["prot_total"].astype(float)
             ax.scatter(v, it, label=s, s=20, alpha=0.7)
         ax.legend()
     elif type_ == "Run order":
@@ -428,5 +435,63 @@ def plot_ms1_vs_ms2(qqc: QQC) -> plt.Figure:
     ax.set_ylabel("Correlations")
     ax.set_title("Ms1, Ms2 Peptide Correlation")
     dot_plot_style(ax)
+    fig.tight_layout()
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# LC batch deviation plots
+# ---------------------------------------------------------------------------
+
+def plot_lc_deviations(qqc: QQC, global_trend: bool = True) -> plt.Figure:
+    """Visualize LC run-order drift corrections.
+
+    Mirrors R's PlotLC_Deviations.
+
+    Parameters
+    ----------
+    qqc:
+        QQC object after lc_batch_correct has been run.
+    global_trend:
+        If True, plot a histogram of spline R² values across all peptides.
+        If False, plot a faceted scatter of order vs intensity for the
+        peptides with the strongest trends (R² > 0.5), up to 10 panels.
+    """
+    if not hasattr(qqc, "lc_batch_deviations") or qqc.lc_batch_deviations is None:
+        raise ValueError("No LC batch deviation data found. Run lc_batch_correct first.")
+
+    rsq_vals, plot_data = qqc.lc_batch_deviations
+
+    if global_trend:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.hist(rsq_vals, bins=30, color="steelblue", edgecolor="white")
+        ax.set_xlabel("Spline R²")
+        ax.set_ylabel("# of peptides")
+        dot_plot_style(ax)
+        fig.tight_layout()
+        return fig
+
+    # Faceted scatter: one panel per high-R² peptide (up to 10)
+    if not plot_data:
+        raise ValueError("No high-R² peptides (R² > 0.5) found to plot.")
+
+    n_panels = len(plot_data)
+    ncols = min(3, n_panels)
+    nrows = (n_panels + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows), squeeze=False)
+
+    scores_sorted = sorted(plot_data, key=lambda d: float(d["score"]), reverse=True)
+    for idx, d in enumerate(scores_sorted):
+        ax = axes[idx // ncols][idx % ncols]
+        ax.scatter(d["order"], d["data"], s=10, alpha=0.7, color="steelblue", label="data")
+        ax.plot(d["order"], d["model"], color="firebrick", linewidth=1.5, label="spline")
+        ax.set_title(f"R² = {d['score']}")
+        ax.set_xlabel("Injection order")
+        ax.set_ylabel("Normalized intensity")
+        dot_plot_style(ax)
+
+    for idx in range(n_panels, nrows * ncols):
+        axes[idx // ncols][idx % ncols].set_visible(False)
+
     fig.tight_layout()
     return fig

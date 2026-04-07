@@ -221,6 +221,11 @@ def trim_extra_peptides(qqc: QQC) -> QQC:
     qqc.matrices.peptide_rows = rows[keep_idx] if rows is not None else None
     qqc.matrices.peptide_protein_map = ppm.iloc[keep_idx].reset_index(drop=True)
 
+    # Keep peptide_mask in sync (DIA objects carry this)
+    if hasattr(qqc.matrices, "peptide_mask") and qqc.matrices.peptide_mask is not None:
+        if len(qqc.matrices.peptide_mask) == len(peptide_mat):
+            qqc.matrices.peptide_mask = qqc.matrices.peptide_mask[keep_idx]
+
     return qqc
 
 

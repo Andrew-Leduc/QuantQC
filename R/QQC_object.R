@@ -75,6 +75,54 @@ matricies_Miceotopes <- setClass(
   )
 )
 
+normalize_linker_columns <- function(linker){
+  # Build a lowercase → original-index lookup
+  col_names <- colnames(linker)
+  lower_names <- tolower(col_names)
+
+  # Canonical name → all accepted lowercase variants
+  canonical_map <- list(
+    Run   = c("run", "rawfile", "rawfilename", "filename", "file"),
+    Well  = c("well", "injectwell", "inject"),
+    plate = c("plate", "plateid", "slide"),
+    sample = c("sample", "condition", "celltype")
+  )
+
+  for (canonical in names(canonical_map)) {
+    variants <- canonical_map[[canonical]]
+    match_idx <- which(lower_names %in% variants)
+    if (length(match_idx) > 0) {
+      col_names[match_idx[1]] <- canonical
+      lower_names[match_idx[1]] <- tolower(canonical)
+    }
+  }
+
+  colnames(linker) <- col_names
+
+  required_cols <- c("Run", "Well", "plate")
+  missing_cols <- setdiff(required_cols, colnames(linker))
+  if (length(missing_cols) > 0) {
+    stop(paste0(
+      "Linker file is missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      ". Found columns: ",
+      paste(colnames(linker), collapse = ", "), "."
+    ))
+  }
+
+  linker$Run   <- trimws(as.character(linker$Run))
+  linker$Well  <- trimws(as.character(linker$Well))
+  linker$plate <- trimws(as.character(linker$plate))
+
+  return(linker)
+}
+
+read_linker_csv <- function(path){
+  linker <- read.csv(path, check.names = FALSE, stringsAsFactors = FALSE)
+  linker <- normalize_linker_columns(linker)
+  return(linker)
+}
+
 
 #' Import MaxQuant evidence file and create a QQC object for DDA data.
 #'
@@ -93,7 +141,7 @@ matricies_Miceotopes <- setClass(
 MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
 
 
-  linker <- read.csv(linker)
+  linker <- read_linker_csv(linker)
 
   if(plex == 14){
     RI_numb = 18
@@ -205,20 +253,24 @@ MQ_to_QQC <- function(data_path,linker,plex ,PIF_in,PEP_in){
 #' @export
 DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
-  linker <- read.csv(linker_path)
+  linker <- read_linker_csv(linker_path)
   linker$Order <- 1:nrow(linker)
 
 
 
-  columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence','Precursor.Mz',
+  columns_to_read_tsv <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence','Precursor.Mz',
                       'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
+
+  columns_to_read_parquet <- c(columns_to_read_tsv, 'Channel')
 
   if(dir.exists(data_path) == F){
     if(grepl('\\.parquet$', data_path, ignore.case = TRUE)){
       Raw_data <- arrow::read_parquet(data_path)
-      Raw_data <- Raw_data %>% dplyr::select(dplyr::all_of(columns_to_read))
+      Raw_data <- Raw_data %>% dplyr::select(dplyr::any_of(columns_to_read_parquet))
+      is_parquet <- TRUE
     } else {
-      Raw_data <- data.table::fread(data_path,select = columns_to_read)
+      Raw_data <- data.table::fread(data_path,select = columns_to_read_tsv)
+      is_parquet <- FALSE
     }
   }
 
@@ -229,13 +281,15 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
     }
 
     raw_files <- list.files(data_path)
+    is_parquet <- FALSE
     for(i in 1:length(raw_files)){
       file_path <- paste0(data_path, raw_files[i])
       if(grepl('\\.parquet$', raw_files[i], ignore.case = TRUE)){
         data_next <- arrow::read_parquet(file_path)
-        data_next <- data_next %>% dplyr::select(dplyr::all_of(columns_to_read))
+        data_next <- data_next %>% dplyr::select(dplyr::any_of(columns_to_read_parquet))
+        is_parquet <- TRUE
       } else {
-        data_next <- data.table::fread(file_path, select = columns_to_read)
+        data_next <- data.table::fread(file_path, select = columns_to_read_tsv)
       }
       if(i == 1){
         Raw_data <- data_next
@@ -257,8 +311,13 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
   Raw_data <- Raw_data %>% filter(Protein.Group != '')
 
 
-  # this grabs the mTRAQ tag used (may need to be adjusted if using different multiplexing tag)
-  Raw_data$plex <- substr(Raw_data$Precursor.Id[1:nrow(Raw_data)], 10, 10)
+  # For parquet files, DIANN provides a Channel column directly (integer channel index).
+  # For TSV files, extract the channel from the mTRAQ tag position in Precursor.Id.
+  if(is_parquet && 'Channel' %in% colnames(Raw_data)){
+    Raw_data$plex <- Raw_data$Channel
+  } else {
+    Raw_data$plex <- substr(Raw_data$Precursor.Id[1:nrow(Raw_data)], 10, 10)
+  }
 
   # Unique cell ID
   Raw_data$ID <- paste0(Raw_data$Well,Raw_data$plate,'.',Raw_data$plex)
@@ -301,7 +360,7 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 #' @export
 JMOD_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
-  linker <- read.csv(linker_path)
+  linker <- read_linker_csv(linker_path)
   linker$Order <- 1:nrow(linker)
 
   # {'Run':"file_name",
@@ -459,7 +518,7 @@ FragPipe_to_QQC <- function(data_path,linker,plex ,PIF_in){
 
 
 
-  linker <- read.csv(linker)
+  linker <- read_linker_csv(linker)
 
 
 
@@ -534,8 +593,6 @@ FragPipe_to_QQC <- function(data_path,linker,plex ,PIF_in){
   return(QQC)
 
 }
-
-
 
 
 

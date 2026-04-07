@@ -13,7 +13,7 @@ link_manual_Raw <- function(QQC){
   linker <- QQC@meta.data
 
 
-  linker <- reshape2::melt(linker, ids = c('Run','well','plate'))
+  linker <- reshape2::melt(linker, ids = c('Run','Well','plate'))
 
 
 
@@ -753,4 +753,3 @@ PlotSlideLayout_label <- function(QQC){
           legend.text = element_text(size = 20))
 
 }
-

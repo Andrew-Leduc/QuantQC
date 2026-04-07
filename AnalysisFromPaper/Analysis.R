@@ -130,12 +130,12 @@ Gen_QQC_report_DIA(data_path = data_path,
 #Generate nPOP object from raw data
 AppNote <- DIANN_to_QQC(data_path,linker_path, plex = 3, carrier = F)
 
-AppNote@raw_data
+
 
 # Normalize single cell runs to reference channel,
 # filter out data points over twice reference
 # Generate turn long table format to Peptide X Cell matrix
-AppNote <- cellXpeptide(AppNote, TQVal = 1, chQVal = .05)
+AppNote <- cellXpeptide(AppNote, TQVal = 1, chQVal = 1)
 
 
 ## Mapping cellenONE meta data to raw data
@@ -169,7 +169,7 @@ PlotNegCtrl(AppNote)
 
 
 # filter bad cells based off above, put in log10 intensity
-AppNote <- FilterBadCells(AppNote, min_intens = 7)
+AppNote <- FilterBadCells(AppNote, min_intens = 7.5)
 
 
 
@@ -180,8 +180,11 @@ PlotCellSizeVsIntensity(AppNote, type = 'sample')
 # Collapse and give statistics options:
 #1 = median relative peptide, 2 = maxLFQ... soon to be directLFQwhich is much faster
 
-AppNote <- CollapseToProtein(AppNote, 1)
+AppNote@ms_type
+AppNote <- CollapseToProtein(AppNote, 1, LC_correct = T)
 
+
+PlotLC_Deviations(AppNote,global_trend = F)
 
 
 # plot protein numbers
@@ -217,6 +220,8 @@ PlotPCA(AppNote, by = "Condition")
 PlotPCA(AppNote, by = "Total protein")
 PlotPCA(AppNote, by = "Label")
 
+FeaturePCA(AppNote,prot = 'O95067',imputed = F)
+
 ## also assigns louvain clusters
 AppNote <- ComputeUMAP(AppNote)
 
@@ -224,6 +229,41 @@ AppNote <- ComputeUMAP(AppNote)
 PlotUMAP(AppNote, by = 'Condition')
 
 View(AppNote@reductions$UMAP)
+
+test <- read.csv('/Users/andrewleduc/Downloads/CDC_data_normalized.csv')
+
+intersect(test$X,convert$split_gene)
+
+PDC <- AppNote@meta.data %>% filter(sample == 'Melanoma')
+
+mat <- AppNote@matricies@protein[convert2$split_prot,PDC$ID]
+
+rownames(mat) <- convert2$split_gene
+
+library(ComplexHeatmap)
+mat <- mat[rowSums(is.na(mat)==F)>7,]
+
+for(i in 1:nrow(mat)){
+  mat[i,] <- mat[i,] - mean(mat[i,],na.rm=T)
+}
+
+Heatmap(cor(t(mat),use = 'pairwise.complete.obs'))
+
+test_pca <- eigen(cor(mat,use = 'pairwise.complete.obs'))$vectors
+test_pca <- as.data.frame(test_pca)
+test_pca$prot <- mat["MKI67",]
+ggplot(test_pca,aes(x = V1,y = V2,colour = prot)) + geom_point(size = 4)+theme_classic()+
+  scale_color_gradient2(high = 'red',low = 'blue')
+
+test_pca$prot <- mat["MCM4",]
+ggplot(test_pca,aes(x = V1,y = V2,colour = prot)) + geom_point(size = 4)+theme_classic()+
+  scale_color_gradient2(high = 'red',low = 'blue')
+
+
+convert2 <- convert %>% filter(split_gene %in% test$X)
+
+convert$split_gene
+
 ## Plots peptide agreement across clusters and shows location of peptide mapped to protein
 ## sequence
 
@@ -235,9 +275,10 @@ View(AppNote@reductions$UMAP)
 
 FeatureUMAP(AppNote, prot = 'P00918', imputed = F)
 
+View(AppNote@matricies@peptide_protein_map)
 
-convert <- Proc_fasta('/Users/andrewleduc/Library/CloudStorage/GoogleDrive-research@slavovlab.net/.shortcut-targets-by-id/1uQ4exoKlaZAGnOG1iCJPzYN3ooYYZB7g/MS/Users/LK/FASTA/swissprot_human_20211005.fasta')
-convert <- convert %>% filter(split_prot %in% test)
+convert <- Proc_fasta('/Users/andrewleduc/Desktop/Github/QuantQC/inst/extdata/Human.fasta')
+convert <- convert %>% filter(split_prot %in% AppNote@matricies@peptide_protein_map$Protein)
 
 
 Membrane <- read.gmt('/Users/andrewleduc/Downloads/PLASMA_MEMBRANE.v2023.2.Hs.gmt')

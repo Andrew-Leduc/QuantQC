@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import polars as pl
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import LSQUnivariateSpline
 
 from quantqc.core import QQC, MatricesDDA, MatricesDIA, df_to_mat
 from quantqc.utils import (
@@ -395,13 +395,27 @@ def batch_correct(qqc: QQC, labels: bool = True, run: bool = True,
 
 
 def lc_batch_correct(qqc: QQC) -> QQC:
-    """Run-order drift correction via spline smoothing."""
+    """Run-order drift correction via spline smoothing.
+
+    Mirrors R's LC_BatchCorrect: fits a smooth.spline per peptide row along
+    injection order and subtracts the trend when R² > 0.1.
+    """
     pep_norm = qqc.matrices.peptide.copy()
     pep_norm[pep_norm == 0] = np.nan
     pep_norm = normalize_reference_vector(pep_norm, log=True)
 
-    order_df = qqc.meta_data[qqc.meta_data["ID"].isin(qqc.matrices.peptide_cols)]
-    orders = order_df.set_index("ID").loc[qqc.matrices.peptide_cols]["Order"].values.astype(float)
+    # Build ID → Order map
+    if "ID" in qqc.meta_data.columns and "Order" in qqc.meta_data.columns:
+        order_df = qqc.meta_data[qqc.meta_data["ID"].isin(qqc.matrices.peptide_cols)]
+        id_order = order_df.set_index("ID")["Order"]
+    else:
+        id_order = (
+            qqc.raw_data[["ID", "Run"]]
+            .drop_duplicates()
+            .merge(qqc.meta_data[["Run", "Order"]], on="Run", how="left")
+            .set_index("ID")["Order"]
+        )
+    orders = id_order.reindex(qqc.matrices.peptide_cols).values.astype(float)
 
     rsq_save = []
     plot_residuals = []
@@ -409,34 +423,60 @@ def lc_batch_correct(qqc: QQC) -> QQC:
     for i in range(pep_norm.shape[0]):
         row = pep_norm[i]
         valid = ~np.isnan(row)
-        n_valid = valid.sum()
+        n_valid = int(valid.sum())
 
         if n_valid <= 29:
             continue
 
+        # Match R: floor(n_valid / 11), clamped to [2, 20]
         df_spline = min(max(n_valid // 11, 2), 20)
         x = orders[valid]
         y = row[valid]
 
+        # Sort by order (required for spline routines)
+        sort_idx = np.argsort(x)
+        x_sorted = x[sort_idx].copy()
+        y_sorted = y[sort_idx]
+
+        # Break duplicate injection-order values with tiny jitter
+        for j in range(1, len(x_sorted)):
+            if x_sorted[j] <= x_sorted[j - 1]:
+                x_sorted[j] = x_sorted[j - 1] + 1e-6
+
         try:
-            spline = UnivariateSpline(x, y, k=3, s=len(x) * df_spline)
-            predicted = spline(x)
+            # LSQUnivariateSpline with explicit knot placement directly controls df.
+            # For a cubic spline: df = n_interior_knots + 4.
+            n_interior_knots = max(df_spline - 4, 0)
+            degree = 3
+            if n_interior_knots == 0:
+                degree = min(df_spline - 1, 3)
+                degree = max(degree, 1)
+                knots = np.array([])
+            else:
+                knots = np.linspace(x_sorted[0], x_sorted[-1], n_interior_knots + 2)[1:-1]
+                knots = knots[(knots > x_sorted[0]) & (knots < x_sorted[-1])]
+            spline = LSQUnivariateSpline(x_sorted, y_sorted, t=knots, k=degree)
+            predicted_sorted = spline(x_sorted)
         except Exception:
             continue
 
-        ss_res = np.sum((y - predicted) ** 2)
-        ss_tot = np.sum((y - np.mean(predicted)) ** 2)
-        r_sq = 1 - ss_res / ss_tot if ss_tot > 0 else 0
+        ss_res = float(np.sum((y_sorted - predicted_sorted) ** 2))
+        ss_tot = float(np.sum((y_sorted - np.mean(predicted_sorted)) ** 2))
+        r_sq = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
         rsq_save.append(r_sq)
 
         if r_sq > 0.1:
-            sort_idx = np.argsort(x)
-            pep_norm[i, valid] = y[sort_idx] - predicted[sort_idx]
+            # Evaluate spline at original (unsorted) x values and subtract
+            predicted_orig = spline(x)
+            pep_norm[i, valid] = y - predicted_orig
 
             if r_sq > 0.5 and len(plot_residuals) < 10:
                 plot_residuals.append({
-                    "order": x, "data": y, "model": predicted, "score": str(round(r_sq, 3)),
+                    "order": x_sorted.tolist(),
+                    "data": y_sorted.tolist(),
+                    "model": predicted_sorted.tolist(),
+                    "score": str(round(r_sq, 3)),
                 })
 
     qqc.matrices.peptide = pep_norm

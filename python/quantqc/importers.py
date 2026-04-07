@@ -21,6 +21,16 @@ from quantqc.core import QQC, MatricesDDA, MatricesDIA
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_linker_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Standardise linker column names regardless of how the user capitalised them.
+
+    Canonical names expected by the rest of the codebase:
+      Run, Well, plate, sample  (plus any extra columns the user included)
+    """
+    _canonical = {"run": "Run", "well": "Well", "plate": "plate", "sample": "sample"}
+    return df.rename(columns={c: _canonical[c.lower()] for c in df.columns if c.lower() in _canonical})
+
+
 def _read_single_file(path: Path, columns: list[str], separator: str = "\t") -> pl.DataFrame:
     """Read a single TSV or parquet file, selecting *columns*."""
     if path.suffix.lower() in (".parquet", ".pq"):
@@ -57,7 +67,7 @@ def _clean_protein_name(name: str) -> str:
 
 def mq_to_qqc(data_path: str, linker: str, plex: int, PIF_in: float, PEP_in: float) -> QQC:
     """Import MaxQuant evidence file(s) into a QQC object."""
-    linker_df = pd.read_csv(linker)
+    linker_df = _normalize_linker_cols(pd.read_csv(linker))
 
     ri_numb = {14: 18, 29: 32, 32: 32}[plex]
 
@@ -110,7 +120,7 @@ def mq_to_qqc(data_path: str, linker: str, plex: int, PIF_in: float, PEP_in: flo
 
 def diann_to_qqc(data_path: str, linker_path: str, plex: int, carrier: bool = False) -> QQC:
     """Import DIA-NN report into a QQC object."""
-    linker_df = pd.read_csv(linker_path)
+    linker_df = _normalize_linker_cols(pd.read_csv(linker_path))
     linker_df["Order"] = range(1, len(linker_df) + 1)
 
     columns_to_read = [
@@ -157,7 +167,7 @@ def diann_to_qqc(data_path: str, linker_path: str, plex: int, carrier: bool = Fa
 
 def jmod_to_qqc(data_path: str, linker_path: str, plex: int, carrier: bool = False) -> QQC:
     """Import JMOD pipeline output into a QQC object."""
-    linker_df = pd.read_csv(linker_path)
+    linker_df = _normalize_linker_cols(pd.read_csv(linker_path))
     linker_df["Order"] = range(1, len(linker_df) + 1)
 
     jmod_cols = ["file_name", "seq", "stripped_seq", "z", "plex_Area", "protein", "channel"]
@@ -232,7 +242,7 @@ def fragpipe_to_qqc(data_path: str, linker: str, plex: int, PIF_in: float) -> QQ
     # Extract raw file name from Spectrum.File path
     data["Spectrum.File"] = data["Spectrum.File"].apply(lambda x: x.replace("\\", "/").split("/")[-2] if "/" in x.replace("\\", "/") else x)
 
-    linker_df = pd.read_csv(linker)
+    linker_df = _normalize_linker_cols(pd.read_csv(linker))
 
     if plex == 32:
         map_fp = [

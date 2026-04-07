@@ -1,0 +1,215 @@
+---
+title: "Quant QC — Miceotopes"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+params:
+  data_path: "data/file1.csv"
+  linker_path: "data/file2.csv"
+  isolation: "data/file3.csv"
+  prot_vis_umap: NULL
+  ChQ: 1
+  plex_exp: 2
+  t: 5
+
+---
+
+
+# Results {.tabset}
+
+```{r Pre_proccess, include=FALSE}
+
+# Read and format raw data, link MS runs to injection wells
+QQC_obj_Exp <- DIANN_to_QQC(params$data_path, params$linker_path,
+                             plex = params$plex_exp, carrier = FALSE)
+
+# Build the Miceotopes-style peptide × cell matrix
+# (uses the heavy/light channel structure rather than a carrier channel)
+QQC_obj_Exp <- Miceotope_cellXpeptide(QQC_obj_Exp,
+                                      chQVal = params$ChQ,
+                                      t      = params$t)
+
+# Map CellenONE metadata to MS runs
+QQC_obj_Exp <- link_cellenONE_Raw(QQC_obj_Exp, params$isolation)
+
+```
+
+
+## LC/MS Performance Statistics
+
+### IDs and intensities
+```{r, echo=FALSE, fig.width=10, fig.height=12}
+
+QQC_obj_Exp <- Calculate_run_order_statistics(QQC_obj_Exp)
+
+PlotIntensityDrift(QQC_obj_Exp)
+
+```
+
+
+### Retention time drift
+```{r, echo=FALSE, fig.width=10, fig.height=8}
+
+PlotRTDrift(QQC_obj_Exp)
+
+```
+
+
+## Single Cell Statistics
+
+
+### Negative control / single cell comparison
+
+Here we plot the summed intensities across all peptides from a given single cell,
+for all single cells and negative controls in the data.
+```{r negative_ctrl, echo=FALSE, fig.width=11, fig.height=4.5, warning=FALSE, message=FALSE}
+
+QQC_obj_Exp <- EvaluateNegativeControls(QQC_obj_Exp)
+
+PlotNegCtrl(QQC_obj_Exp)
+
+QQC_obj_Exp <- FilterBadCells(QQC_obj_Exp, min_intens = 7.0)
+
+```
+
+
+### Peptide trimming
+
+Remove extra low-abundance peptides for proteins that already have sufficient coverage.
+```{r trim, echo=FALSE, results='hold', warning=FALSE, message=FALSE}
+
+cat("Abundance peptides before trim:", nrow(QQC_obj_Exp@matricies@peptide), "\n")
+QQC_obj_Exp <- Trim_extra_peptides(QQC_obj_Exp)
+cat("Abundance peptides after trim:", nrow(QQC_obj_Exp@matricies@peptide), "\n")
+
+cat("Heavy/light peptides before trim:", nrow(QQC_obj_Exp@miceotopes@Raw_H), "\n")
+QQC_obj_Exp <- Trim_extra_peptides_miceotopes(QQC_obj_Exp)
+cat("Heavy/light peptides after trim:", nrow(QQC_obj_Exp@miceotopes@Raw_H), "\n")
+
+```
+
+
+### Cell size information
+
+```{r cell_size, echo=FALSE, fig.width=7, fig.height=4.5}
+
+PlotCellSizeVsIntensity(QQC_obj_Exp, type = 'sample')
+
+```
+
+
+### Protein and peptide numbers per cell
+
+All peptides are identified at 1% global FDR.
+
+```{r collapse_and_count, echo=FALSE, fig.width=11, fig.height=4.5, warning=FALSE, message=FALSE}
+
+# Set ms_type to miceotopes for LC-corrected collapse
+QQC_obj_Exp@ms_type <- 'miceotopes'
+QQC_obj_Exp <- CollapseToProtein(QQC_obj_Exp, 1, LC_correct = TRUE)
+
+# Switch back to DDA mode for downstream protein-level plots
+QQC_obj_Exp@ms_type <- 'DDA'
+
+PlotProtAndPep(QQC_obj_Exp)
+
+```
+
+
+### LC batch correction diagnostics
+
+```{r lc_deviations, echo=FALSE, fig.width=10, fig.height=4, warning=FALSE, message=FALSE}
+
+PlotLC_Deviations(QQC_obj_Exp, global_trend = TRUE)
+
+```
+
+```{r lc_deviations_facets, echo=FALSE, fig.width=11, fig.height=12, warning=FALSE, message=FALSE}
+
+PlotLC_Deviations(QQC_obj_Exp, global_trend = FALSE)
+
+```
+
+
+### Data completeness based on filtering
+
+```{r completeness, echo=FALSE, fig.width=11.5, fig.height=4.5, warning=FALSE, message=FALSE}
+
+PlotDataComplete(QQC_obj_Exp)
+
+```
+
+
+### Correlations between peptides mapping to the same protein
+
+```{r pep_cor, echo=FALSE, fig.width=7, fig.height=4.5}
+
+QQC_obj_Exp <- SharedPeptideCor(QQC_obj_Exp)
+
+PlotPepCor(QQC_obj_Exp)
+
+```
+
+
+### PCA and batch effect checks
+```{r PCA, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE}
+
+QQC_obj_Exp <- KNN_impute(QQC_obj_Exp)
+
+# Correct for mTRAQ label bias only (run correction handled by LC_correct above)
+QQC_obj_Exp <- BatchCorrect(QQC_obj_Exp, run = FALSE, labels = TRUE)
+
+QQC_obj_Exp <- ComputePCA(QQC_obj_Exp)
+
+PlotPCA(QQC_obj_Exp, by = "Condition")
+PlotPCA(QQC_obj_Exp, by = "Label")
+PlotPCA(QQC_obj_Exp, by = "Run order")
+PlotPCA(QQC_obj_Exp, by = "Total protein")
+
+```
+
+
+### Additional dimensionality reduction and clustering
+
+```{r UMAP, echo=FALSE, fig.height=4.5, fig.width=11, message=FALSE, warning=FALSE}
+
+if (!is.null(params$prot_vis_umap)) {
+  QQC_obj_Exp <- ComputeUMAP(QQC_obj_Exp)
+  PlotUMAP(QQC_obj_Exp)
+}
+
+```
+
+
+### Proteins of interest
+
+```{r prot_viz, warning=FALSE, message=FALSE, echo=FALSE, fig.width=11, fig.height=4.5}
+
+if (!is.null(params$prot_vis_umap)) {
+  fig1 <- ProteinClustConsistency(QQC_obj_Exp, prot = params$prot_vis_umap, type = 'line')
+  fig1
+} else {
+  print("No protein specified — pass prot_vis_umap to visualize a protein of interest.")
+}
+
+```
+
+
+## CellenONE Info
+
+The well position each set is transported into is overlaid in the middle of the cluster
+of cells that compose a labelled set.
+
+### Cell type positions across slide
+```{r slide_celltype, echo=FALSE, fig.width=15, fig.height=10}
+
+PlotSlideLayout_celltype(QQC_obj_Exp)
+
+```
+
+### Label position across slide
+```{r slide_label, echo=FALSE, fig.width=13, fig.height=10}
+
+PlotSlideLayout_label(QQC_obj_Exp)
+
+```
