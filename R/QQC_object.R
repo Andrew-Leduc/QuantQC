@@ -258,19 +258,15 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
 
 
 
-  columns_to_read_tsv <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence','Precursor.Mz',
-                      'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value')
-
-  columns_to_read_parquet <- c(columns_to_read_tsv, 'Channel')
+  columns_to_read <-c('Genes','Run','Lib.PG.Q.Value','RT','Precursor.Id','Stripped.Sequence','Precursor.Mz',
+                      'Precursor.Charge','Precursor.Quantity','Ms1.Area','Protein.Group','Translated.Q.Value','Channel.Q.Value','Channel')
 
   if(dir.exists(data_path) == F){
     if(grepl('\\.parquet$', data_path, ignore.case = TRUE)){
       Raw_data <- arrow::read_parquet(data_path)
-      Raw_data <- Raw_data %>% dplyr::select(dplyr::any_of(columns_to_read_parquet))
-      is_parquet <- TRUE
+      Raw_data <- Raw_data %>% dplyr::select(dplyr::any_of(columns_to_read))
     } else {
-      Raw_data <- data.table::fread(data_path,select = columns_to_read_tsv)
-      is_parquet <- FALSE
+      Raw_data <- data.table::fread(data_path, select = intersect(columns_to_read, names(data.table::fread(data_path, nrows=0))))
     }
   }
 
@@ -281,15 +277,13 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
     }
 
     raw_files <- list.files(data_path)
-    is_parquet <- FALSE
     for(i in 1:length(raw_files)){
       file_path <- paste0(data_path, raw_files[i])
       if(grepl('\\.parquet$', raw_files[i], ignore.case = TRUE)){
         data_next <- arrow::read_parquet(file_path)
-        data_next <- data_next %>% dplyr::select(dplyr::any_of(columns_to_read_parquet))
-        is_parquet <- TRUE
+        data_next <- data_next %>% dplyr::select(dplyr::any_of(columns_to_read))
       } else {
-        data_next <- data.table::fread(file_path, select = columns_to_read_tsv)
+        data_next <- data.table::fread(file_path, select = intersect(columns_to_read, names(data.table::fread(file_path, nrows=0))))
       }
       if(i == 1){
         Raw_data <- data_next
@@ -311,9 +305,9 @@ DIANN_to_QQC <- function(data_path,linker_path,plex,carrier = F){
   Raw_data <- Raw_data %>% filter(Protein.Group != '')
 
 
-  # For parquet files, DIANN provides a Channel column directly (integer channel index).
-  # For TSV files, extract the channel from the mTRAQ tag position in Precursor.Id.
-  if(is_parquet && 'Channel' %in% colnames(Raw_data)){
+  # Use Channel column directly if present (new DIANN parquet format),
+  # otherwise extract from mTRAQ tag position in Precursor.Id (TSV format).
+  if('Channel' %in% colnames(Raw_data)){
     Raw_data$plex <- Raw_data$Channel
   } else {
     Raw_data$plex <- substr(Raw_data$Precursor.Id[1:nrow(Raw_data)], 10, 10)
